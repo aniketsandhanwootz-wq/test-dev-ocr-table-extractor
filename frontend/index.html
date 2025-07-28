@@ -1149,7 +1149,7 @@
             } else {
                 try {
                     const resp = await fetch(
-                        "https://ocr-table-extractor.onrender.com/fetch-drawings",
+                        "https://dev-ocr-table-extractor.onrender.com/fetch-drawings",
                         {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -1955,7 +1955,7 @@ function getRowWarning(row) {
                 formData.append("column", internalColumn);
 
                 try {
-                    const resp = await fetch("https://ocr-table-extractor.onrender.com", {
+                    const resp = await fetch("https://dev-ocr-table-extractor.onrender.com", {
                         method: "POST",
                         body: formData,
                     });
@@ -2338,7 +2338,7 @@ function getRowWarning(row) {
                 if (childPartsData.length) {
                     total++;
                     const respChild = await fetch(
-                        "https://ocr-table-extractor.onrender.com/add-child-parts",
+                        "https://dev-ocr-table-extractor.onrender.com/add-child-parts",
                         {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -2360,7 +2360,7 @@ function getRowWarning(row) {
                 if (boData.length) {
                     total++;
                     const respBo = await fetch(
-                        "https://ocr-table-extractor.onrender.com/add-bo-parts",
+                        "https://dev-ocr-table-extractor.onrender.com/add-bo-parts",
                         {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
