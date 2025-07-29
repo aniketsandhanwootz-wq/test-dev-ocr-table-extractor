@@ -639,10 +639,10 @@ async def update_last_ocr_bom_item_direct(row_id: str, new_last_item: int):
         return False
 
 # API code to fetch drawing numbers (File name)
-GLIDE_API_KEY = "XXXXXXXXXXXXXXXXXXXXXX"
+GLIDE_API_KEY = "54333200-37b8-4742-929c-156d49cd7c64"
 GLIDE_APP_ID = "rIdnwOvTnxdsQUtlXKUB"
 GLIDE_TABLE = "native-table-unGdNRqsjTPlBDZB2629"
-ZAPIER_WEBHOOK_URL = "YOUR_ACTUAL_ZAPIER_WEBHOOK_URL_HERE"
+ZAPIER_WEBHOOK_URL = "https://hooks.zapier.com/hooks/catch/21674508/2pv0c1j/"
 
 @app.post("/fetch-drawings")
 async def fetch_drawings(request: Request):
