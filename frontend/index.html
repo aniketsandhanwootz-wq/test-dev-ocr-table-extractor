@@ -367,6 +367,11 @@
             /* color:#eaeaea !important; */
         }
 
+        .handsontable td.type-missing-childpart {
+            color:#fc5f67 !important;
+            font-weight: 600 !important;
+        }      
+
         /* Column headers */
         .handsontable .ht_clone_top th,
         .handsontable .ht_clone_top_left_corner th {
@@ -1333,7 +1338,7 @@ function getRowWarning(row) {
                     source: isMatched
                         ? ["", ...drawingOptions]
                         : isType
-                            ? ["Child Part", "BO"]
+                            ? ["Child Part", "BO", "Missing Childpart"]
                             : undefined,
 
                     strict: false,
@@ -1353,6 +1358,8 @@ function getRowWarning(row) {
                                 } else if (value === "BO") {
                                     td.classList.add("type-bo");
                                     hot.setCellMeta(row, 0, 'className', 'bo-row');
+                                } else if (value === "Missing Childpart") {
+                                    td.classList.add("type-missing-childpart");
                                 }
                             }
 
@@ -2298,7 +2305,7 @@ function getRowWarning(row) {
                     if (!qty && !type) continue;
                     if (!qty || !type) continue;
 
-                    if (type === "Child Part") {
+                    if (type === "Child Part" || type === "Missing Childpart") {
                         childPartsData.push({
                             itemNumber: lastOcrBomItem + vRow + 1,
                             quantity: qty,
@@ -2356,6 +2363,61 @@ function getRowWarning(row) {
                         throw new Error(`Failed to add Child Parts: ${await respChild.text()}`);
                     }
                     successful++;
+
+                    // Check for Missing Childpart rows and trigger PDF generation for each
+                    const missingChildpartRows = [];
+                    for (let vRow = 0; vRow < hot.countRows(); vRow++) {
+                        const pRow = hot.toPhysicalRow(vRow);
+                        if (pRow == null) continue;
+                        const row = spreadsheetData[pRow];
+                        const type = row.Type?.trim();
+                        const qty = row.Quantity?.text?.trim();
+                        
+                        // Only process rows with data and Missing Childpart type
+                        if (type === "Missing Childpart" && qty) {
+                            missingChildpartRows.push(row["Matched Childpart"] || "");
+                        }
+                    }
+
+                    if (missingChildpartRows.length > 0) {
+                        console.log(`📄 Generating ${missingChildpartRows.length} PDFs for missing childparts`);
+                        
+                        // Generate PDF for each missing childpart
+                        const pdfPromises = missingChildpartRows.map(async (matchedPart) => {
+                            try {
+                                const pdfResp = await fetch(
+                                    `https://dev-ocr-table-extractor.onrender.com/generate-missing-childpart-pdf?project=${project}&part=${partNumber}`,
+                                    {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                            matchedPart: matchedPart
+                                        }),
+                                    }
+                                );
+                                
+                                if (pdfResp.ok) {
+                                    console.log(`✅ Missing childpart PDF generated successfully for: ${matchedPart}`);
+                                    return true;
+                                } else {
+                                    console.warn(`⚠️ PDF generation failed for ${matchedPart}:`, await pdfResp.text());
+                                    return false;
+                                }
+                            } catch (pdfError) {
+                                console.error(`❌ PDF generation error for ${matchedPart}:`, pdfError);
+                                return false;
+                            }
+                        });
+                        
+                        // Wait for all PDFs to complete
+                        const results = await Promise.all(pdfPromises);
+                        const successful = results.filter(r => r).length;
+                        
+                        if (successful > 0) {
+                            console.log(`✅ Generated ${successful} missing childpart PDFs successfully`);
+                        }
+                    }
+
                 }
                 if (boData.length) {
                     total++;
