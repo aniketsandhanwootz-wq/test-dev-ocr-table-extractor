@@ -12,6 +12,7 @@ import uuid
 from fpdf import FPDF
 import requests
 import tempfile
+import json
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -642,7 +643,7 @@ async def update_last_ocr_bom_item_direct(row_id: str, new_last_item: int):
 GLIDE_API_KEY = "54333200-37b8-4742-929c-156d49cd7c64"
 GLIDE_APP_ID = "rIdnwOvTnxdsQUtlXKUB"
 GLIDE_TABLE = "native-table-unGdNRqsjTPlBDZB2629"
-ZAPIER_WEBHOOK_URL = "https://hooks.zapier.com/hooks/catch/21674508/2pv0c1j/"
+# ZAPIER_WEBHOOK_URL = "YOUR_ACTUAL_ZAPIER_WEBHOOK_URL_HERE"
 
 @app.post("/fetch-drawings")
 async def fetch_drawings(request: Request):
@@ -936,48 +937,119 @@ async def add_bo_parts(request: Request):
         )
 # Childpart & BO Data Post Ends here
 
+# @app.post("/generate-missing-childpart-pdf")
+# async def generate_missing_pdf(request: Request):
+#     # Get project and part number from query params
+#     url_params = dict(request.query_params)
+#     project = url_params.get("project")
+#     part_number = url_params.get("part")
+
+#     # Get matchedPart and zapierWebhookUrl from payload
+#     payload = await request.json()
+#     matched_part = payload.get("matchedPart") or part_number
+
+#     if not project or not part_number:
+#         return JSONResponse(
+#             status_code=400,
+#             content={"error": "Missing required parameters: project, part (in query), or zapierWebhookUrl (in body)"}
+#         )
+
+#     # 1. Create PDF file
+#     pdf = FPDF(orientation='L', unit='mm', format='A4')
+#     pdf.add_page()
+#     pdf.set_font("Arial", size=24)
+#     pdf.cell(0, 60, txt="Missing Child Part Drawing", ln=True, align='C')
+#     pdf.set_font("Arial", size=18)
+#     pdf.cell(0, 10, txt=f"Part Number: {matched_part}", ln=True, align='C')
+
+#     # Use a temp file for PDF
+#     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+#         filename = tmp.name
+#         pdf.output(filename)
+
+#     # 2. Send to Zapier
+#     with open(filename, 'rb') as f:
+#         files = {'file': (f"Missing_ChildPart_{matched_part}.pdf", f, 'application/pdf')}
+#         data = {
+#             'project': project,
+#             'partNumber': part_number
+#         }
+#         response = requests.post(ZAPIER_WEBHOOK_URL, data=data, files=files)
+
+#     os.remove(filename)
+
+#     return {"status": "PDF sent", "zapier_status_code": response.status_code}
+
+
+# --- Generate Missing Child Part PDF and upload directly to Glide Drawing Table ---
+
 @app.post("/generate-missing-childpart-pdf")
-async def generate_missing_pdf(request: Request):
-    # Get project and part number from query params
-    url_params = dict(request.query_params)
-    project = url_params.get("project")
-    part_number = url_params.get("part")
+async def generate_missing_childpart_pdf(request: Request):
+    """Generate Missing Child Part PDF and upload directly to Glide Drawing Table"""
+    try:
+        payload = await request.json()
+        matched_part = payload.get("matchedPart")
+        project = payload.get("project")
+        part_number = payload.get("partNumber")
 
-    # Get matchedPart and zapierWebhookUrl from payload
-    payload = await request.json()
-    matched_part = payload.get("matchedPart") or part_number
+        if not matched_part or not project or not part_number:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Missing required fields: matchedPart, project, partNumber"}
+            )
 
-    if not project or not part_number:
-        return JSONResponse(
-            status_code=400,
-            content={"error": "Missing required parameters: project, part (in query), or zapierWebhookUrl (in body)"}
-        )
+        # 1️⃣ Generate PDF in-memory
+        pdf = FPDF(orientation="L", unit="mm", format="A4")
+        pdf.add_page()
+        pdf.set_font("Arial", size=24)
+        pdf.cell(0, 20, txt="Missing Child Part Drawing", ln=True, align="C")
+        pdf.set_font("Arial", size=18)
+        pdf.cell(0, 15, txt=f"Part Number: {matched_part}", ln=True, align="C")
 
-    # 1. Create PDF file
-    pdf = FPDF(orientation='L', unit='mm', format='A4')
-    pdf.add_page()
-    pdf.set_font("Arial", size=24)
-    pdf.cell(0, 60, txt="Missing Child Part Drawing", ln=True, align='C')
-    pdf.set_font("Arial", size=18)
-    pdf.cell(0, 10, txt=f"Part Number: {matched_part}", ln=True, align='C')
+        pdf_file_path = f"/tmp/{matched_part}.pdf"
+        pdf.output(pdf_file_path)
 
-    # Use a temp file for PDF
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-        filename = tmp.name
-        pdf.output(filename)
+        # 2️⃣ Prepare Glide mutation (Drawing table)
+        mutations = [
+            {
+                "kind": "add-row-to-table",
+                "tableName": GLIDE_TABLE,  # same table as fetch-drawings
+                "columnValues": {
+                    "VQlMl": project,        # Project column
+                    "nlHAO": part_number     # Part number column
+                }
+            }
+        ]
 
-    # 2. Send to Zapier
-    with open(filename, 'rb') as f:
-        files = {'file': (f"Missing_ChildPart_{matched_part}.pdf", f, 'application/pdf')}
-        data = {
-            'project': project,
-            'partNumber': part_number
+        url = "https://api.glideapp.io/api/function/mutateTables"
+        headers = {"Authorization": f"Bearer {GLIDE_API_KEY}"}
+
+        # 3️⃣ Send multipart request to Glide
+        with open(pdf_file_path, "rb") as file:
+            form_data = {
+                "appID": (None, GLIDE_APP_ID),
+                "mutations": (None, json.dumps(mutations)),
+                "file": (f"{matched_part}.pdf", file, "application/pdf")
+            }
+
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, headers=headers, files=form_data)
+                response.raise_for_status()
+                result = response.json()
+
+        os.remove(pdf_file_path)
+        
+        return {
+            "success": True,
+            "message": "PDF uploaded directly to Glide Drawing Table",
+            "glide_response": result
         }
-        response = requests.post(ZAPIER_WEBHOOK_URL, data=data, files=files)
 
-    os.remove(filename)
-
-    return {"status": "PDF sent", "zapier_status_code": response.status_code}
+    except Exception as e:
+        import traceback
+        print("❌ Error in generate_missing_childpart_pdf:")
+        print(traceback.format_exc())
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.get("/debug")
