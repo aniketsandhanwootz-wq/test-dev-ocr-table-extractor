@@ -987,10 +987,13 @@ async def add_bo_parts(request: Request):
 async def generate_missing_childpart_pdf(request: Request):
     """Generate Missing Child Part PDF and upload directly to Glide Drawing Table"""
     try:
+        # Get project and part number from query params (like your old code)
+        url_params = dict(request.query_params)
+        project = url_params.get("project")
+        part_number = url_params.get("part")
+
         payload = await request.json()
         matched_part = payload.get("matchedPart")
-        project = payload.get("project")
-        part_number = payload.get("partNumber")
 
         if not matched_part or not project or not part_number:
             return JSONResponse(
