@@ -9,6 +9,9 @@ import logging
 import re
 import httpx  # used to fecth drawing numbers (File name)
 import uuid
+from fpdf import FPDF
+import requests
+import tempfile
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -636,9 +639,10 @@ async def update_last_ocr_bom_item_direct(row_id: str, new_last_item: int):
         return False
 
 # API code to fetch drawing numbers (File name)
-GLIDE_API_KEY = "54333200-37b8-4742-929c-156d49cd7c64"
+GLIDE_API_KEY = "XXXXXXXXXXXXXXXXXXXXXX"
 GLIDE_APP_ID = "rIdnwOvTnxdsQUtlXKUB"
 GLIDE_TABLE = "native-table-unGdNRqsjTPlBDZB2629"
+ZAPIER_WEBHOOK_URL = "YOUR_ACTUAL_ZAPIER_WEBHOOK_URL_HERE"
 
 @app.post("/fetch-drawings")
 async def fetch_drawings(request: Request):
@@ -931,6 +935,49 @@ async def add_bo_parts(request: Request):
             content={"error": f"Server error: {str(e)}"}
         )
 # Childpart & BO Data Post Ends here
+
+@app.post("/generate-missing-childpart-pdf")
+async def generate_missing_pdf(request: Request):
+    # Get project and part number from query params
+    url_params = dict(request.query_params)
+    project = url_params.get("project")
+    part_number = url_params.get("part")
+
+    # Get matchedPart and zapierWebhookUrl from payload
+    payload = await request.json()
+    matched_part = payload.get("matchedPart") or part_number
+
+    if not project or not part_number:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Missing required parameters: project, part (in query), or zapierWebhookUrl (in body)"}
+        )
+
+    # 1. Create PDF file
+    pdf = FPDF(orientation='L', unit='mm', format='A4')
+    pdf.add_page()
+    pdf.set_font("Arial", size=24)
+    pdf.cell(0, 60, txt="Missing Child Part Drawing", ln=True, align='C')
+    pdf.set_font("Arial", size=18)
+    pdf.cell(0, 10, txt=f"Part Number: {matched_part}", ln=True, align='C')
+
+    # Use a temp file for PDF
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        filename = tmp.name
+        pdf.output(filename)
+
+    # 2. Send to Zapier
+    with open(filename, 'rb') as f:
+        files = {'file': (f"Missing_ChildPart_{matched_part}.pdf", f, 'application/pdf')}
+        data = {
+            'project': project,
+            'partNumber': part_number
+        }
+        response = requests.post(ZAPIER_WEBHOOK_URL, data=data, files=files)
+
+    os.remove(filename)
+
+    return {"status": "PDF sent", "zapier_status_code": response.status_code}
 
 
 @app.get("/debug")
