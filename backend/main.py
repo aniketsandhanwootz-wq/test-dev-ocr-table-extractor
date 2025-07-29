@@ -1019,7 +1019,8 @@ async def generate_missing_childpart_pdf(request: Request):
                 "tableName": GLIDE_TABLE,  # same table as fetch-drawings
                 "columnValues": {
                     "VQlMl": project,        # Project column
-                    "nlHAO": part_number     # Part number column
+                    "nlHAO": part_number,     # Part number column
+                    "9iB5E": "file"
                 }
             }
         ]
