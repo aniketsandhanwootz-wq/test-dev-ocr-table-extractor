@@ -1085,15 +1085,37 @@ async def generate_missing_childpart_pdf(request: Request):
             )
 
         # 1️⃣ Generate PDF in-memory
+        # pdf = FPDF(orientation="L", unit="mm", format="A4")
+        # pdf.add_page()
+        # pdf.set_font("Arial", size=24)
+        # pdf.cell(0, 20, txt="Missing Child Part Drawing", ln=True, align="C")
+        # pdf.set_font("Arial", size=18)
+        # pdf.cell(0, 15, txt=f"Part Number: {matched_part}", ln=True, align="C")
+
+        # pdf_file_path = f"/tmp/{matched_part}.pdf"
+        # pdf.output(pdf_file_path)
+
+        # 1️⃣ Generate PDF in-memory
         pdf = FPDF(orientation="L", unit="mm", format="A4")
         pdf.add_page()
-        pdf.set_font("Arial", size=24)
-        pdf.cell(0, 20, txt="Missing Child Part Drawing", ln=True, align="C")
-        pdf.set_font("Arial", size=18)
-        pdf.cell(0, 15, txt=f"Part Number: {matched_part}", ln=True, align="C")
-
+        
+        # Move down from top to center the content vertically
+        pdf.ln(60)  # Move down 80mm from top (roughly center for landscape A4)
+        
+        # Title - larger font
+        pdf.set_font("Arial", size=32)  # Increased from 24
+        pdf.cell(0, 15, txt="Missing Child Part Drawing", ln=True, align="C")
+        
+        # Add some space between title and part number
+        pdf.ln(5)  # 10mm gap
+        
+        # Part number - larger font  
+        pdf.set_font("Arial", size=24)  # Increased from 18
+        pdf.cell(0, 12, txt=f"Part Number: {matched_part}", ln=True, align="C")
+        
         pdf_file_path = f"/tmp/{matched_part}.pdf"
         pdf.output(pdf_file_path)
+
 
         # 2️⃣ Upload PDF to Cloudinary
         try:
@@ -1104,7 +1126,7 @@ async def generate_missing_childpart_pdf(request: Request):
                     public_id=f"missing-pdfs/{matched_part}",  # File name will be included
                     overwrite=True
                 )
-                pdf_url = upload_result["url"]
+                pdf_url = upload_result["secure_url"]
                 print(f"✅ PDF uploaded to Cloudinary: {pdf_url}")
                 
         except Exception as cloudinary_error:
