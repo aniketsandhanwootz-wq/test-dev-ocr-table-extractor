@@ -643,16 +643,16 @@ async def update_last_ocr_bom_item_direct(row_id: str, new_last_item: int):
         return False
 
 # API code to fetch drawing numbers (File name)
-GLIDE_API_KEY = "54333200-37b8-4742-929c-156d49cd7c64"
-GLIDE_APP_ID = "rIdnwOvTnxdsQUtlXKUB"
-GLIDE_TABLE = "native-table-unGdNRqsjTPlBDZB2629"
+GLIDE_API_KEY = os.getenv("GLIDE_API_KEY")
+GLIDE_APP_ID = os.getenv("GLIDE_APP_ID")
+GLIDE_TABLE = os.getenv("GLIDE_TABLE")
 # ZAPIER_WEBHOOK_URL = "YOUR_ACTUAL_ZAPIER_WEBHOOK_URL_HERE"
 
 #Cloudinary configuration
 cloudinary.config(
-    cloud_name="dbwg6zz3l",
-    api_key="118281671454884",
-    api_secret="DdC7BGwdE5DoabQDw0DXfYo6JrY"
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET")
 )
 
 
