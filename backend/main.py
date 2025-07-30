@@ -13,6 +13,9 @@ from fpdf import FPDF
 import requests
 import tempfile
 import json
+import cloudinary
+import cloudinary.uploader
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -645,6 +648,14 @@ GLIDE_APP_ID = "rIdnwOvTnxdsQUtlXKUB"
 GLIDE_TABLE = "native-table-unGdNRqsjTPlBDZB2629"
 # ZAPIER_WEBHOOK_URL = "YOUR_ACTUAL_ZAPIER_WEBHOOK_URL_HERE"
 
+#Cloudinary configuration
+cloudinary.config(
+    cloud_name="dbwg6zz3l",
+    api_key="118281671454884",
+    api_secret="DdC7BGwdE5DoabQDw0DXfYo6JrY"
+)
+
+
 @app.post("/fetch-drawings")
 async def fetch_drawings(request: Request):
     print("🎯 /fetch-drawings endpoint hit")
@@ -983,9 +994,81 @@ async def add_bo_parts(request: Request):
 
 # --- Generate Missing Child Part PDF and upload directly to Glide Drawing Table ---
 
+# @app.post("/generate-missing-childpart-pdf")
+# async def generate_missing_childpart_pdf(request: Request):
+#     """Generate Missing Child Part PDF and upload directly to Glide Drawing Table"""
+#     try:
+#         # Get project and part number from query params (like your old code)
+#         url_params = dict(request.query_params)
+#         project = url_params.get("project")
+#         part_number = url_params.get("part")
+
+#         payload = await request.json()
+#         matched_part = payload.get("matchedPart")
+
+#         if not matched_part or not project or not part_number:
+#             return JSONResponse(
+#                 status_code=400,
+#                 content={"error": "Missing required fields: matchedPart, project, partNumber"}
+#             )
+
+#         # 1️⃣ Generate PDF in-memory
+#         pdf = FPDF(orientation="L", unit="mm", format="A4")
+#         pdf.add_page()
+#         pdf.set_font("Arial", size=24)
+#         pdf.cell(0, 20, txt="Missing Child Part Drawing", ln=True, align="C")
+#         pdf.set_font("Arial", size=18)
+#         pdf.cell(0, 15, txt=f"Part Number: {matched_part}", ln=True, align="C")
+
+#         pdf_file_path = f"/tmp/{matched_part}.pdf"
+#         pdf.output(pdf_file_path)
+
+#         # 2️⃣ Prepare Glide mutation (Drawing table)
+#         mutations = [
+#             {
+#                 "kind": "add-row-to-table",
+#                 "tableName": GLIDE_TABLE,  # same table as fetch-drawings
+#                 "columnValues": {
+#                     "VQlMl": project,        # Project column
+#                     "nlHAO": part_number,     # Part number column
+#                     "9iB5E": "file"
+#                 }
+#             }
+#         ]
+
+#         url = "https://api.glideapp.io/api/function/mutateTables"
+#         headers = {"Authorization": f"Bearer {GLIDE_API_KEY}"}
+
+#         # 3️⃣ Send multipart request to Glide
+#         with open(pdf_file_path, "rb") as file:
+#             form_data = {
+#                 "appID": (None, GLIDE_APP_ID),
+#                 "mutations": (None, json.dumps(mutations)),
+#                 "file": (f"{matched_part}.pdf", file, "application/pdf")
+#             }
+
+#             async with httpx.AsyncClient() as client:
+#                 response = await client.post(url, headers=headers, files=form_data)
+#                 response.raise_for_status()
+#                 result = response.json()
+
+#         os.remove(pdf_file_path)
+        
+#         return {
+#             "success": True,
+#             "message": "PDF uploaded directly to Glide Drawing Table",
+#             "glide_response": result
+#         }
+
+#     except Exception as e:
+#         import traceback
+#         print("❌ Error in generate_missing_childpart_pdf:")
+#         print(traceback.format_exc())
+#         return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.post("/generate-missing-childpart-pdf")
 async def generate_missing_childpart_pdf(request: Request):
-    """Generate Missing Child Part PDF and upload directly to Glide Drawing Table"""
+    """Generate Missing Child Part PDF, upload to Cloudinary, and save URL in Glide Drawing Table"""
     try:
         # Get project and part number from query params (like your old code)
         url_params = dict(request.query_params)
@@ -1012,40 +1095,61 @@ async def generate_missing_childpart_pdf(request: Request):
         pdf_file_path = f"/tmp/{matched_part}.pdf"
         pdf.output(pdf_file_path)
 
-        # 2️⃣ Prepare Glide mutation (Drawing table)
+        # 2️⃣ Upload PDF to Cloudinary
+        try:
+            with open(pdf_file_path, "rb") as file:
+                upload_result = cloudinary.uploader.upload(
+                    file,
+                    resource_type="raw",               # Required for PDF
+                    public_id=f"missing-pdfs/{matched_part}",  # File name will be included
+                    overwrite=True
+                )
+                pdf_url = upload_result["url"]
+                print(f"✅ PDF uploaded to Cloudinary: {pdf_url}")
+                
+        except Exception as cloudinary_error:
+            print(f"❌ Cloudinary upload failed: {cloudinary_error}")
+            # Clean up temp file on Cloudinary error
+            if os.path.exists(pdf_file_path):
+                os.remove(pdf_file_path)
+            raise Exception(f"Failed to upload PDF to Cloudinary: {str(cloudinary_error)}")
+
+        # Clean up temp file after successful upload
+        if os.path.exists(pdf_file_path):
+            os.remove(pdf_file_path)
+
+        # 3️⃣ Prepare Glide mutation (Drawing table) with Cloudinary URL
         mutations = [
             {
                 "kind": "add-row-to-table",
                 "tableName": GLIDE_TABLE,  # same table as fetch-drawings
                 "columnValues": {
-                    "VQlMl": project,        # Project column
+                    "VQlMl": project,         # Project column
                     "nlHAO": part_number,     # Part number column
-                    "9iB5E": "file"
+                    "9iB5E": pdf_url          # Assuming 9iB5E is the drawing link column
                 }
             }
         ]
 
         url = "https://api.glideapp.io/api/function/mutateTables"
-        headers = {"Authorization": f"Bearer {GLIDE_API_KEY}"}
+        headers = {
+            "Authorization": f"Bearer {GLIDE_API_KEY}",
+            "Content-Type": "application/json"
+        }
 
-        # 3️⃣ Send multipart request to Glide
-        with open(pdf_file_path, "rb") as file:
-            form_data = {
-                "appID": (None, GLIDE_APP_ID),
-                "mutations": (None, json.dumps(mutations)),
-                "file": (f"{matched_part}.pdf", file, "application/pdf")
-            }
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                url,
+                headers=headers,
+                json={"appID": GLIDE_APP_ID, "mutations": mutations}
+            )
+            response.raise_for_status()
+            result = response.json()
 
-            async with httpx.AsyncClient() as client:
-                response = await client.post(url, headers=headers, files=form_data)
-                response.raise_for_status()
-                result = response.json()
-
-        os.remove(pdf_file_path)
-        
         return {
             "success": True,
-            "message": "PDF uploaded directly to Glide Drawing Table",
+            "message": "PDF uploaded to Cloudinary and URL saved in Glide Drawing Table",
+            "pdf_url": pdf_url,
             "glide_response": result
         }
 
@@ -1054,6 +1158,7 @@ async def generate_missing_childpart_pdf(request: Request):
         print("❌ Error in generate_missing_childpart_pdf:")
         print(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
+
 
 
 @app.get("/debug")
