@@ -1104,7 +1104,7 @@ async def generate_missing_childpart_pdf(request: Request):
         
         # Title - larger font
         pdf.set_font("Arial", size=32)  # Increased from 24
-        pdf.cell(0, 15, txt="Missing Child Part Drawing", ln=True, align="C")
+        pdf.cell(0, 15, txt="Missing Drawing", ln=True, align="C")
         
         # Add some space between title and part number
         pdf.ln(5)  # 10mm gap
