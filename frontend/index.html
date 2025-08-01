@@ -1382,8 +1382,8 @@ function getRowWarning(row) {
                                 }
                             }
 
-                            // 🆕 ADD THIS RIGHT HERE - Step 2 code:
-                            if (prop === "Matched Childpart" && value && value.toString().trim() !== "") {
+                            // 🆕 Check for missing drawing in Type column instead
+                            if (prop === "Type") {
                                 const rowData = hotInstance.getSourceDataAtRow(row);
                                 if (rowData["_missingDrawing"]) {
                                     td.classList.add("quantity-error-cell");
