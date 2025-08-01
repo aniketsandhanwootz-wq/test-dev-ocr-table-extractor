@@ -1128,6 +1128,11 @@
             Type: "Type",
         };
 
+        // Display aliases for dropdown values
+        const TYPE_DISPLAY_NAMES = {
+            "Missing Childpart": "Missing Drawing"
+        };
+
         let spreadsheetData = [];
         let columnsList = [];
         let hot;
@@ -1338,7 +1343,7 @@ function getRowWarning(row) {
                     source: isMatched
                         ? ["", ...drawingOptions]
                         : isType
-                            ? ["Child Part", "BO", "Missing Childpart"]
+                            ? ["Child Part", "BO", TYPE_DISPLAY_NAMES["Missing Childpart"]]
                             : undefined,
 
                     strict: false,
@@ -1358,13 +1363,14 @@ function getRowWarning(row) {
                                 } else if (value === "BO") {
                                     td.classList.add("type-bo");
                                     hot.setCellMeta(row, 0, 'className', 'bo-row');
-                                } else if (value === "Missing Childpart") {
+                                } else if (value === TYPE_DISPLAY_NAMES["Missing Childpart"]) {
                                     td.classList.add("type-missing-childpart");
                                 }
                             }
 
                             // Add this flag before the checks
                             let warningNeeded = false;
+                            let errorNeeded = false;
 
                             // ✅ ADD: Check for warning needed
                             if (prop === "Type" && value === "BO") {
@@ -1373,6 +1379,16 @@ function getRowWarning(row) {
                                     td.classList.add("needs-review-cell");
                                     td.setAttribute("data-part-number", rowData["PartNumber"]?.text || "");
                                     warningNeeded = true;
+                                }
+                            }
+
+                            // 🆕 ADD THIS RIGHT HERE - Step 2 code:
+                            if (prop === "Matched Childpart" && value && value.toString().trim() !== "") {
+                                const rowData = hotInstance.getSourceDataAtRow(row);
+                                if (rowData["_missingDrawing"]) {
+                                    td.classList.add("quantity-error-cell");
+                                    td.setAttribute("data-part-number", rowData["PartNumber"]?.text || "");
+                                    errorNeeded = true;
                                 }
                             }
 
@@ -1393,10 +1409,14 @@ function getRowWarning(row) {
                                 }
                             }
 
-                            // After both checks, trigger a single notification if needed
-                            if (warningNeeded && !hasWarningNotificationShown) {
-                            showNotification("Verify Part Number or Type (BO/Childpart)", "warning");
-                            hasWarningNotificationShown = true;
+                            // After both checks, trigger appropriate notification
+                            if ((warningNeeded || errorNeeded) && !hasWarningNotificationShown) {
+                                if (errorNeeded) {
+                                    showNotification("Childpart Not Found, Mark as BO or MISSING DRAWING", "error");
+                                } else if (warningNeeded) {
+                                    showNotification("Verify Part Number", "warning");
+                                }
+                                hasWarningNotificationShown = true;
                             }
 
                         } else if (isOCRcol) {
@@ -1750,6 +1770,7 @@ function getRowWarning(row) {
                     r['Type'] = '';
                     delete r._needsReview;
                     delete r._similarityScore;
+                    delete r._missingDrawing;
                 });
             }
             console.log(`📊 Data received:`, newColumnData);
@@ -1791,9 +1812,9 @@ function getRowWarning(row) {
                             } else {
                                 // ❌ NO MATCH: Potential BO with warning
                                 spreadsheetData[i]["Matched Childpart"] = text; // Use original PartNumber text
-                                spreadsheetData[i]["Type"] = "BO";
-                                spreadsheetData[i]["_needsReview"] = true; // Flag for warning icon
-                                console.log(`⚠️ No match found - auto-set as BO with warning: "${text}"`);
+                                spreadsheetData[i]["Type"] = "";
+                                spreadsheetData[i]["_missingDrawing"] = true; // Flag for warning icon
+                                console.log(`❌ No matching drawing found - missing drawing error: "${text}"`);
                             }
                         } else {
                             console.log(`⏭️ Skipped auto-population - already set to: "${currentMatch}"`);
@@ -2305,7 +2326,7 @@ function getRowWarning(row) {
                     if (!qty && !type) continue;
                     if (!qty || !type) continue;
 
-                    if (type === "Child Part" || type === "Missing Childpart") {
+                    if (type === "Child Part" || type === TYPE_DISPLAY_NAMES["Missing Childpart"]) {
                         childPartsData.push({
                             itemNumber: lastOcrBomItem + vRow + 1,
                             quantity: qty,
@@ -2374,7 +2395,7 @@ function getRowWarning(row) {
                         const qty = row.Quantity?.text?.trim();
                         
                         // Only process rows with data and Missing Childpart type
-                        if (type === "Missing Childpart" && qty) {
+                        if (type === TYPE_DISPLAY_NAMES["Missing Childpart"] && qty) {
                             missingChildpartRows.push(row["Matched Childpart"] || "");
                         }
                     }
