@@ -312,7 +312,7 @@
         }
 
         .handsontable th .ocr-upload-area-header .upload-label {
-            font-size: 12px !important;
+            font-size: 15px !important;
             margin: 0 !important;
             line-height: 1.2 !important;
             white-space: nowrap !important;
@@ -322,6 +322,7 @@
             vertical-align: middle !important;
             text-align: center !important;
             width: auto !important;
+            font-size: 14px ;
         }
 
 
@@ -487,9 +488,9 @@
         }
 
         /* Dropdown Menu Specific Fixes */
-        .htDropdownMenu.htMenu {
-            background-color: #1a1a1a !important;
-            border: 1px solid #444 !important;
+        /* .htDropdownMenu.htMenu {
+            background-color: #2a2a2a !important;
+            border: 2px solid #D99E01 !important;
         }
 
         .htDropdownMenu.htMenu table.htCore {
@@ -508,22 +509,31 @@
         .handsontable.listbox .ht_master table {
             border: 1px solid #1F1F1F;
             border-collapse: separate;
-            /* background: #1a1a1a; */
         }
 
         .handsontable.listbox td {
             background-color: #1a1a1a !important;
-            /* color: #323232 !important; */
-            /* border-color: #333 !important; */
+            color: #323232 !important;
         }
 
         .handsontable.listbox tr td.current,
         .handsontable.listbox tbody tr:hover td {
             background-color: #2a2a2a !important;
-            /* color: #D99E01 !important; */
-        }
+            color: #D99E01 !important;
+        } */
 
+/* Most specific targeting for dropdown - add this at the END of your CSS */
+/* .handsontable.listbox .ht_master table.htCore {
+    background-color: #2a2a2a  !important;
+    border: 1px solid #c18d00 !important;
+    
+}
 
+.handsontable.listbox tbody tr:hover td,
+.handsontable.listbox tbody tr td.current {
+    background-color: #312e2e !important;
+    color: #2b2b2b !important;
+} */
         /* ========== SCROLLBARS ========== */
         /* .handsontable .wtHolder::-webkit-scrollbar {
     width: 10px;
@@ -545,6 +555,96 @@
 
 
 
+        /* Dropdown Menu Specific Fixes - Synced with Smart Overlay */
+        .htDropdownMenu.htMenu {
+            background-color: #2a2a2a !important;
+            border: 2px solid #D99E01 !important;
+            border-radius: 4px !important;
+            /* box-shadow: 0 4px 8px rgba(217, 158, 1, 0.3); */
+        }
+
+        .htDropdownMenu.htMenu table.htCore {
+            background-color: #2a2a2a !important;
+        }
+
+        .htDropdownMenu.htMenu tbody tr td {
+            background-color: #2a2a2a !important;
+            color: #ffffff !important;
+            border-bottom: 1px solid #444 !important;
+        }
+
+        .htDropdownMenu.htMenu tbody tr:hover td {
+            background-color: #D99E01 !important;
+            color: #000000 !important;
+        }
+
+        /* Listbox (Main Dropdown) - Synced with Smart Overlay */
+        .handsontable.listbox .ht_master table {
+            border: 2px solid #D99E01 !important;
+            border-radius: 4px !important;
+            border-collapse: separate;
+            background-color: #2a2a2a !important;
+        }
+
+        .handsontable.listbox .ht_master table.htCore {
+            background-color: #2a2a2a !important;
+            border: 2px solid #D99E01 !important;
+            border-radius: 4px !important;
+        }
+
+        .handsontable.listbox td {
+            background-color: #2a2a2a !important;
+            color: #ffffff !important;
+            border-bottom: 1px solid #444 !important;
+        }
+
+        .handsontable.listbox tbody tr:hover td,
+        .handsontable.listbox tbody tr td.current {
+            background-color: #D99E01 !important;
+            color: #000000 !important;
+        }
+
+        .handsontable.listbox tr td:last-child {
+            border-bottom: none !important;
+        }
+
+        /* Add this CSS to your <style> section (around line 800): */
+
+        .smart-options-overlay {
+            position: absolute;
+            background-color: #2a2a2a;
+            border: 2px solid #D99E01;
+            border-radius: 4px;
+            /* box-shadow: 0 4px 8px rgba(217, 158, 1, 0.3); */
+            z-index: 1000;
+            display: none;
+            min-width: 200px;
+        }
+
+        .smart-option-item {
+            padding: 4px 8px;
+            color: #ffffff;
+            cursor: pointer;
+            border-bottom: 1px solid #444;
+            font-size: 14px;
+        }
+
+        .smart-option-item:last-child {
+            border-bottom: none;
+        }
+
+        .smart-option-item:hover {
+            background-color: #D99E01;
+            color: #000000;
+        }
+
+        .smart-option-info {
+            font-style: italic;
+            color: #bbbbbb;
+            cursor: default;
+            pointer-events: none;
+            text-align: center;
+        }
 
 
 
@@ -1181,6 +1281,7 @@
         });
 
         // Sequential character matching + best‐match utility
+
         // function sequentialCharacterMatch(part, child) {
         //     if (!part || !child) return 0;
         //     const p = part.trim().toUpperCase();
@@ -1204,7 +1305,7 @@
         //     if (matched === p.length) return Math.max(0.85, sim);
         //     return sim;
         // }
-        
+
         function sequentialCharacterMatch(part, child) {
             if (!part || !child) return 0;
             const p = part.trim().toUpperCase();
@@ -1222,7 +1323,7 @@
             // No match
             return 0;
         }
-        
+
         // function findBestSequentialMatch(partText, drawingNumbers) {
         //     if (!partText || !drawingNumbers.length || !drawingNumbers.length) {
         //         return { bestMatch: { target: "", rating: 0 }, allMatches: [] };
@@ -1275,50 +1376,144 @@
         //     return warns.join('; ');
         // }
         
-function getRowWarning(row) {
-  const ocrCols = ["Quantity", "Description", "Material"];
-  const ocr = [];
-  const edited = [];
-  const manual = [];
-  const warn = [];
+        function getRowWarning(row) {
+        const ocrCols = ["Quantity", "Description", "Material"];
+        const ocr = [];
+        const edited = [];
+        const manual = [];
+        const warn = [];
 
-  // OCR/Manual/Edited classification
-  ocrCols.forEach(col => {
-    const val = row[col];
-    const text = val?.text?.trim() || "";
-    const conf = val?.confidence ?? 0;
-    const isOCR = !!val?.ocr;
+        // OCR/Manual/Edited classification
+        ocrCols.forEach(col => {
+            const val = row[col];
+            const text = val?.text?.trim() || "";
+            const conf = val?.confidence ?? 0;
+            const isOCR = !!val?.ocr;
 
-    if (text) {
-      if (isOCR && conf > 0) {
-        ocr.push(col[0]);
-      } else if (isOCR && conf === 0) {
-        edited.push(col[0]);
-      } else {
-        manual.push(col[0]);
-      }
+            if (text) {
+            if (isOCR && conf > 0) {
+                ocr.push(col[0]);
+            } else if (isOCR && conf === 0) {
+                edited.push(col[0]);
+            } else {
+                manual.push(col[0]);
+            }
 
-      // Low-confidence warning
-      if (conf > 0 && conf < 0.95) {
-        warn.push(col[0]);
-      }
-    }
-  });
+            // Low-confidence warning
+            if (conf > 0 && conf < 0.95) {
+                warn.push(col[0]);
+            }
+            }
+        });
 
-  // Type/Matched Childpart warnings
-  if (row._needsReview) warn.push("T");
-  if (row._similarityScore < 0.95) warn.push("P");
+        // Type/Matched Childpart warnings
+        if (row._needsReview) warn.push("T");
+        if (row._similarityScore < 0.95) warn.push("P");
 
-  const parts = [];
+        const parts = [];
 
-  if (ocr.length) parts.push(`OCR(${ocr.join(",")})`);
-  if (edited.length) parts.push(`OCRedited(${edited.join(",")})`);
-  if (manual.length) parts.push(`Manual(${manual.join(",")})`);
-  if (warn.length) parts.push(`Warning(${warn.join(",")})`);
+        if (ocr.length) parts.push(`OCR(${ocr.join(",")})`);
+        if (edited.length) parts.push(`OCRedited(${edited.join(",")})`);
+        if (manual.length) parts.push(`Manual(${manual.join(",")})`);
+        if (warn.length) parts.push(`Warning(${warn.join(",")})`);
 
-  return parts.join("; ");
-}
+        return parts.join("; ");
+        }
 
+        // 2. New overlay function - position relative to the cell, not dropdown:
+        function showSmartOverlayAtCell(row) {
+            console.log("📍 showSmartOverlayAtCell called for row:", row);
+            
+            // Remove existing overlay
+            hideSmartOverlay();
+            
+            // Get the actual cell instead of dropdown
+            try {
+                const partColIndex = hot.propToCol('Matched Childpart');
+                const cellElement = hot.getCell(row, partColIndex);
+                
+                if (!cellElement) {
+                    console.error("❌ Could not find cell element");
+                    return;
+                }
+                
+                const cellRect = cellElement.getBoundingClientRect();
+                console.log("📐 Cell rect:", cellRect);
+                
+                const overlay = document.createElement('div');
+                overlay.id = 'smart-options-overlay';
+                overlay.className = 'smart-options-overlay';
+                overlay.style.display = 'block';
+                overlay.style.position = 'fixed'; // Use fixed positioning
+                overlay.style.left = cellRect.left + 'px';
+                overlay.style.top = (cellRect.bottom + 2) + 'px';
+                overlay.style.width = Math.max(cellRect.width, 200) + 'px';
+                overlay.style.zIndex = '1001';
+                
+                overlay.innerHTML = `
+                    <div class="smart-option-item smart-option-info">── No Match Found ──</div>
+                    <div class="smart-option-item" data-action="missing">Mark as Missing Drawing</div>
+                    <div class="smart-option-item" data-action="bo">Mark as BO</div>
+                `;
+                
+                // Click handlers
+                overlay.addEventListener('click', (e) => {
+                    const action = e.target.dataset.action;
+                    console.log("🖱️ Clicked action:", action);
+                    if (action) {
+                        handleSmartOption(action, row);
+                        hideSmartOverlay();
+                    }
+                });
+                
+                document.body.appendChild(overlay);
+                console.log("✅ Overlay added to DOM");
+                
+                // Hide when clicking elsewhere
+                setTimeout(() => {
+                    document.addEventListener('click', function hideOnOutsideClick(e) {
+                        if (!overlay.contains(e.target)) {
+                            hideSmartOverlay();
+                            document.removeEventListener('click', hideOnOutsideClick);
+                        }
+                    });
+                }, 100);
+                
+            } catch (error) {
+                console.error("❌ Error showing overlay:", error);
+            }
+        }
+
+        function hideSmartOverlay() {
+            const overlay = document.getElementById('smart-options-overlay');
+            if (overlay) {
+                console.log("🗑️ Removing overlay");
+                overlay.remove();
+            }
+        }
+
+
+        function handleSmartOption(action, row) {
+            console.log("⚡ handleSmartOption:", action, "for row:", row);
+            
+            const typeColIndex = hot.propToCol('Type');
+            const partColIndex = hot.propToCol('Matched Childpart');
+            
+            if (action === 'missing') {
+                hot.setDataAtCell(row, typeColIndex, TYPE_DISPLAY_NAMES["Missing Childpart"]);
+                hot.setDataAtCell(row, partColIndex, "");
+                console.log("✅ Set Missing Drawing");
+            } else if (action === 'bo') {
+                hot.setDataAtCell(row, typeColIndex, "BO");
+                hot.setDataAtCell(row, partColIndex, "");
+                console.log("✅ Set BO");
+            }
+            
+            // End editing to close any editors
+            if (hot.getActiveEditor()) {
+                hot.getActiveEditor().finishEditing();
+            }
+        }      
 
         // ─────────────────────────────────────────────────────────────────────
         // Initialize Handsontable with 3 rows + 2 empty rows
@@ -1380,7 +1575,44 @@ function getRowWarning(row) {
                             ? "dropdown"
                             : "text",
                     source: isMatched
-                        ? ["", ...drawingOptions]
+                        // ? ["", ...drawingOptions]
+                        ? function(query, callback) {
+                            // Get current row type 
+                            const selection = hot.getSelected();
+                            const currentRow = selection ? selection[0][0] : 0;
+                            const rowData = hot.getSourceDataAtRow(currentRow);
+                            const currentType = rowData?.Type?.trim() || "";
+                            
+                            // If Type is already BO or Missing Drawing, show normal options only
+                            if (currentType === "BO" || currentType === TYPE_DISPLAY_NAMES["Missing Childpart"]) {
+                                callback(["", ...drawingOptions]);
+                                return;
+                            }
+                            
+                            // If no query, show all normal options
+                            if (!query || query.trim() === "") {
+                                callback(["", ...drawingOptions]);
+                                return;
+                            }
+                            
+                            // Filter existing options based on query
+                            const filteredOptions = drawingOptions.filter(option => 
+                                option.toLowerCase().includes(query.toLowerCase())
+                            );
+                            
+                            // If we have matches, show normal filtered dropdown
+                            if (filteredOptions.length > 0) {
+                                callback(["", ...filteredOptions]);
+                                return;
+                            }
+                            
+                            // No matches found - return dummy option to keep dropdown open
+                            callback([]); // Empty dropdown
+                            setTimeout(() => {
+                                console.log("🔍 Attempting to show smart overlay for row:", currentRow);
+                                showSmartOverlayAtCell(currentRow);
+                            }, 150); // ← Increased delay
+                        }                       
                         : isType
                             ? ["Child Part", "BO", TYPE_DISPLAY_NAMES["Missing Childpart"]]
                             : undefined,
@@ -1645,6 +1877,7 @@ function getRowWarning(row) {
 
             // --- Unified afterChange handler: edit, cut, paste -----------------------------------------------
             hot.addHook('afterChange', (changes, source) => {
+            
                 if (!changes) return;
 
                 // ===== 0. COPY: clear any previous cut‑backup so future paste is treated as edit =====
@@ -1708,8 +1941,40 @@ function getRowWarning(row) {
                 if (source === 'edit') {
                     changes.forEach(([row, prop, oldVal, newVal]) => {
                         if (oldVal === newVal) return;
-                        const colIndex = hot.propToCol(prop);
 
+                        // ✅ NEW: Handle Part Number validation FIRST
+                        // if (prop === 'Matched Childpart' && newVal && newVal.trim() !== '') {
+                        //     const rowData = hot.getSourceDataAtRow(row);
+                        //     const currentType = rowData?.Type?.trim() || "";
+                            
+                        //     // Skip if Type is already BO or Missing Drawing
+                        //     if (currentType !== "BO" && currentType !== TYPE_DISPLAY_NAMES["Missing Childpart"]) {
+                        //         // Check if entered value exists in windowChildParts
+                        //         const isValidPart = windowChildParts.includes(newVal.toString().trim());
+                                
+                        //         if (!isValidPart) {
+                        //             const choice = confirm(
+                        //                 `No Match Found\n\n` +
+                        //                 `Mark as Missing Drawing\n` +
+                        //                 `Mark as BO`
+                        //             );
+                                    
+                        //             const typeColIndex = hot.propToCol('Type');
+                        //             const partColIndex = hot.propToCol('Matched Childpart');
+                                    
+                        //             if (choice) {
+                        //                 hot.setDataAtCell(row, typeColIndex, TYPE_DISPLAY_NAMES["Missing Childpart"]);
+                        //                 hot.setDataAtCell(row, partColIndex, "");
+                        //             } else {
+                        //                 hot.setDataAtCell(row, typeColIndex, "BO");
+                        //                 hot.setDataAtCell(row, partColIndex, "");
+                        //             }
+                        //             return; // ✅ Skip rest of processing for this change
+                        //         }
+                        //     }
+                        // }
+
+                        const colIndex = hot.propToCol(prop);
                         // generic edited marker
                         hot.setCellMeta(row, colIndex, 'className', 'edited-cell');
 
