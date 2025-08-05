@@ -1583,6 +1583,9 @@
                             const rowData = hot.getSourceDataAtRow(currentRow);
                             const currentType = rowData?.Type?.trim() || "";
                             
+                            // Always hide overlay when dropdown is about to show options
+                            hideSmartOverlay();
+                            
                             // If Type is already BO or Missing Drawing, show normal options only
                             if (currentType === "BO" || currentType === TYPE_DISPLAY_NAMES["Missing Childpart"]) {
                                 callback(["", ...drawingOptions]);
@@ -1611,7 +1614,7 @@
                             setTimeout(() => {
                                 console.log("🔍 Attempting to show smart overlay for row:", currentRow);
                                 showSmartOverlayAtCell(currentRow);
-                            }, 150); // ← Increased delay
+                            }, 100); // ← Increased delay
                         }                       
                         : isType
                             ? ["Child Part", "BO", TYPE_DISPLAY_NAMES["Missing Childpart"]]
