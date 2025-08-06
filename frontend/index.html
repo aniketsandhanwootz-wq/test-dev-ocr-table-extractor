@@ -2050,7 +2050,7 @@
                                 spreadsheetData[row]["_missingDrawing"] = false; // ← ADD THIS
                                 console.log(`✅ Cleared _missingDrawing flag for row ${row}`);
                             }
-                            
+
                             // If changing TO Child Part, validate existing Matched Childpart value
                             if (newVal === 'Child Part') {
                                 const rowData = hot.getSourceDataAtRow(row);
@@ -2525,8 +2525,6 @@ function refreshNotifications() {
         const qty = rowData.Quantity?.text?.trim(); 
         const partNumber = rowData["Matched Childpart"]?.trim();
         
-        // Skip completely empty rows
-        if (!type && !qty && !partNumber) continue;
         
         // PRIORITY 1: Missing Drawing Error (OCR mismatch) - RED ICON + NOTIFICATION
         if (rowData["_missingDrawing"]) {
@@ -2548,6 +2546,9 @@ function refreshNotifications() {
                 };
             }
         }
+
+        // Skip completely empty rows
+        if (!type && !qty && !partNumber) continue;
         
         // NOTE: These have icons but NO real-time notifications (by design):
         // - Invalid Quantity (red !) - Only shows notification on Submit
