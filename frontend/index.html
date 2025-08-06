@@ -1335,7 +1335,7 @@
         //     matches.sort((a, b) => b.rating - a.rating);
         //     return { bestMatch: matches[0], allMatches: matches };
         // }
-        
+
         function findBestSequentialMatch(partText, drawingNumbers) {
             if (!partText || !drawingNumbers.length) {
                 return { bestMatch: { target: "", rating: 0 }, allMatches: [] };
@@ -1470,14 +1470,15 @@
                 console.log("✅ Overlay added to DOM");
                 
                 // Hide when clicking elsewhere
-                setTimeout(() => {
-                    document.addEventListener('click', function hideOnOutsideClick(e) {
-                        if (!overlay.contains(e.target)) {
-                            hideSmartOverlay();
-                            document.removeEventListener('click', hideOnOutsideClick);
-                        }
-                    });
-                }, 100);
+                // setTimeout(() => {
+                //     document.addEventListener('click', function hideOnOutsideClick(e) {
+                //         if (!overlay.contains(e.target)) {
+                //             hideSmartOverlay();
+                //             document.removeEventListener('click', hideOnOutsideClick);
+                //         }
+                //     });
+                // }, 100);
+                monitorDropdownForOverlay();
                 
             } catch (error) {
                 console.error("❌ Error showing overlay:", error);
@@ -1492,6 +1493,51 @@
             }
         }
 
+        function monitorDropdownForOverlay() {
+            const checkDropdownState = () => {
+                const dropdown = document.querySelector('.handsontable.listbox');
+                const overlay = document.getElementById('smart-options-overlay');
+                
+                if (!overlay) return; // Overlay already removed
+                
+                if (!dropdown) {
+                    // Dropdown closed - hide overlay
+                    hideSmartOverlay();
+                    return;
+                }
+                
+                // Get current query from active editor
+                const activeEditor = hot.getActiveEditor();
+                const currentQuery = activeEditor ? activeEditor.getValue() : '';
+                
+                // Check if current query would result in filteredOptions.length === 0
+                if (currentQuery && currentQuery.trim()) {
+                    const currentType = hot.getSourceDataAtRow(hot.getSelected()[0][0])?.Type?.trim() || "";
+                    
+                    // Skip check if Type is BO or Missing Drawing
+                    if (currentType !== "BO" && currentType !== TYPE_DISPLAY_NAMES["Missing Childpart"]) {
+                        const filteredOptions = windowChildParts.filter(option => 
+                            option.toLowerCase().includes(currentQuery.toLowerCase())
+                        );
+                        
+                        if (filteredOptions.length > 0) {
+                            // Query now has matches - hide overlay
+                            hideSmartOverlay();
+                            return;
+                        }
+                    }
+                } else {
+                    // Empty query - hide overlay
+                    hideSmartOverlay();
+                    return;
+                }
+                
+                // Continue monitoring
+                setTimeout(checkDropdownState, 100);
+            };
+            
+            setTimeout(checkDropdownState, 100);
+        }        
 
         function handleSmartOption(action, row) {
             console.log("⚡ handleSmartOption:", action, "for row:", row);
@@ -1501,11 +1547,11 @@
             
             if (action === 'missing') {
                 hot.setDataAtCell(row, typeColIndex, TYPE_DISPLAY_NAMES["Missing Childpart"]);
-                hot.setDataAtCell(row, partColIndex, "");
+                // hot.setDataAtCell(row, partColIndex, "");
                 console.log("✅ Set Missing Drawing");
             } else if (action === 'bo') {
                 hot.setDataAtCell(row, typeColIndex, "BO");
-                hot.setDataAtCell(row, partColIndex, "");
+                // hot.setDataAtCell(row, partColIndex, "");
                 console.log("✅ Set BO");
             }
             
@@ -1584,8 +1630,8 @@
                             const currentType = rowData?.Type?.trim() || "";
                             
                             // Always hide overlay when dropdown is about to show options
-                            hideSmartOverlay();
-                            
+                            hideSmartOverlay();   
+
                             // If Type is already BO or Missing Drawing, show normal options only
                             if (currentType === "BO" || currentType === TYPE_DISPLAY_NAMES["Missing Childpart"]) {
                                 callback(["", ...drawingOptions]);
@@ -1619,7 +1665,7 @@
                         : isType
                             ? ["Child Part", "BO", TYPE_DISPLAY_NAMES["Missing Childpart"]]
                             : undefined,
-
+        
                     strict: false,
                     allowInvalid: true,
                     readOnly: false, // all columns remain editable
@@ -1656,12 +1702,12 @@
                                 }
                             }
 
-                            // 🆕 Check for missing drawing in Type column instead
-                            if (prop === "Type") {
-                                const rowData = hotInstance.getSourceDataAtRow(row);
+                            // ADD this for Part Number column (replace the Type logic):
+                            if (prop === "Matched Childpart") {
+                                const rowData = hotInstance.getSourceDataAtRow(row); 
+  
                                 if (rowData["_missingDrawing"]) {
-                                    td.classList.add("quantity-error-cell");
-                                    td.setAttribute("data-part-number", rowData["PartNumber"]?.text || "");
+                                    td.classList.add("quantity-error-cell"); // Red ! icon
                                     errorNeeded = true;
                                 }
                             }
@@ -1685,12 +1731,8 @@
 
                             // After both checks, trigger appropriate notification
                             if ((warningNeeded || errorNeeded) && !hasWarningNotificationShown) {
-                                if (errorNeeded) {
-                                    showNotification("Childpart Not Found, Mark as BO or MISSING DRAWING", "error");
-                                } else if (warningNeeded) {
-                                    showNotification("Verify Part Number", "warning");
-                                }
                                 hasWarningNotificationShown = true;
+                                refreshNotifications();
                             }
 
                         } else if (isOCRcol) {
@@ -1945,38 +1987,6 @@
                     changes.forEach(([row, prop, oldVal, newVal]) => {
                         if (oldVal === newVal) return;
 
-                        // ✅ NEW: Handle Part Number validation FIRST
-                        // if (prop === 'Matched Childpart' && newVal && newVal.trim() !== '') {
-                        //     const rowData = hot.getSourceDataAtRow(row);
-                        //     const currentType = rowData?.Type?.trim() || "";
-                            
-                        //     // Skip if Type is already BO or Missing Drawing
-                        //     if (currentType !== "BO" && currentType !== TYPE_DISPLAY_NAMES["Missing Childpart"]) {
-                        //         // Check if entered value exists in windowChildParts
-                        //         const isValidPart = windowChildParts.includes(newVal.toString().trim());
-                                
-                        //         if (!isValidPart) {
-                        //             const choice = confirm(
-                        //                 `No Match Found\n\n` +
-                        //                 `Mark as Missing Drawing\n` +
-                        //                 `Mark as BO`
-                        //             );
-                                    
-                        //             const typeColIndex = hot.propToCol('Type');
-                        //             const partColIndex = hot.propToCol('Matched Childpart');
-                                    
-                        //             if (choice) {
-                        //                 hot.setDataAtCell(row, typeColIndex, TYPE_DISPLAY_NAMES["Missing Childpart"]);
-                        //                 hot.setDataAtCell(row, partColIndex, "");
-                        //             } else {
-                        //                 hot.setDataAtCell(row, typeColIndex, "BO");
-                        //                 hot.setDataAtCell(row, partColIndex, "");
-                        //             }
-                        //             return; // ✅ Skip rest of processing for this change
-                        //         }
-                        //     }
-                        // }
-
                         const colIndex = hot.propToCol(prop);
                         // generic edited marker
                         hot.setCellMeta(row, colIndex, 'className', 'edited-cell');
@@ -2058,6 +2068,8 @@
                     });
                     hasWarningNotificationShown = false;                
                     hot.render();
+
+                    refreshNotifications(); // Always check current state after user action
                 }
             });
         }
@@ -2485,49 +2497,68 @@
             document.getElementById("header-help-popover").style.display = "none";
         });
 
-        // Close button event
-        // document.getElementById('notification-close').addEventListener('click', hideNotification);        
 
-
-
-
-        // ─────────────────────────────────────────────────────────────────────
-        // validateRequiredFields (unchanged)
-        // ─────────────────────────────────────────────────────────────────────
-        // UPDATED: Validation function (doesn't check PartNumber since it's hidden)
-        // function validateRequiredFields() {
-        //     const missingFields = [];
-        //     let hasValidRow = false;
-
-        //     spreadsheetData.forEach((row, index) => {
-        //         // Check if row has any meaningful data (Type or Quantity)
-        //         const type = row.Type?.trim();
-        //         const qty = row.Quantity?.text?.trim();
-
-        //         // Skip completely empty rows
-        //         if (!type && !qty) return;
-
-        //         hasValidRow = true;
-
-        //         // Validate required fields for non-empty rows
-        //         if (!qty) missingFields.push(`Row ${index + 1}: Quantity`);
-        //         if (!type) missingFields.push(`Row ${index + 1}: Type`);
-
-        //         // If Type is "Child Part", require Select Drawing Number
-        //         if ((type === "Child Part" || type === "BO") && !row["Matched Childpart"]?.trim()) {
-        //             missingFields.push(`Row ${index + 1}: Child Part/BO (required)`);
-        //         }
-
-        //         if (row.Quantity?.text && !/^\d+$/.test(row.Quantity.text.trim())) {
-        //             missingFields.push(`Row ${index + 1}: Quantity must be a number`);
-        //         }
-        //     });
-
-        //     return {
-        //         isValid: hasValidRow && missingFields.length === 0,
-        //         missingFields
-        //     };
-        // }
+// Complete refreshNotifications function - handles all error/warning types
+function refreshNotifications() {
+    // Reset notification flag to allow new notifications
+    hasWarningNotificationShown = false;
+    
+    let highestPriorityNotification = null;
+    
+    // Scan all rows for current issues
+    for (let row = 0; row < hot.countRows(); row++) {
+        const rowData = hot.getSourceDataAtRow(row);
+        if (!rowData) continue;
+        
+        const type = rowData.Type?.trim();
+        const qty = rowData.Quantity?.text?.trim(); 
+        const partNumber = rowData["Matched Childpart"]?.trim();
+        
+        // Skip completely empty rows
+        if (!type && !qty && !partNumber) continue;
+        
+        // PRIORITY 1: Missing Drawing Error (OCR mismatch) - RED ICON + NOTIFICATION
+        if (rowData["_missingDrawing"]) {
+            highestPriorityNotification = { 
+                message: "Part Number Not Found", 
+                type: "error",
+                priority: 1 
+            };
+            break; // Highest priority, stop checking
+        }
+        
+        // PRIORITY 2: Low Similarity Warning - YELLOW ICON + NOTIFICATION  
+        if (rowData._similarityScore > 0 && rowData._similarityScore < 0.95) {
+            if (!highestPriorityNotification) {
+                highestPriorityNotification = { 
+                    message: "Verify Part Number", 
+                    type: "warning",
+                    priority: 2 
+                };
+            }
+        }
+        
+        // NOTE: These have icons but NO real-time notifications (by design):
+        // - Invalid Quantity (red !) - Only shows notification on Submit
+        // - Type errors - Only shows notification on Submit  
+        // - These are handled in validateRequiredFields() for Submit-time validation
+    }
+    
+    // Show the highest priority notification found (if any)
+    if (highestPriorityNotification) {
+        showNotification(
+            highestPriorityNotification.message, 
+            highestPriorityNotification.type
+        );
+        hasWarningNotificationShown = true;
+        
+        console.log(`📢 Notification shown: ${highestPriorityNotification.message} (Priority ${highestPriorityNotification.priority})`);
+    } else {
+        console.log(`✅ No errors found - notifications cleared`);
+        // Optionally hide notification if no errors found
+        // hideNotification(); // Uncomment if you want to auto-hide when all errors are fixed
+    }
+}
 
         function validateRequiredFields() {
             const missingColumns = new Set();
