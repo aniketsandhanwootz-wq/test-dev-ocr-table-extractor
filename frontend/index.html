@@ -1549,16 +1549,21 @@
                 hot.setDataAtCell(row, typeColIndex, TYPE_DISPLAY_NAMES["Missing Childpart"]);
                 // hot.setDataAtCell(row, partColIndex, "");
                 console.log("✅ Set Missing Drawing");
+                // CLEAR the error flag - user has taken action
+                spreadsheetData[row]["_missingDrawing"] = false;
             } else if (action === 'bo') {
                 hot.setDataAtCell(row, typeColIndex, "BO");
                 // hot.setDataAtCell(row, partColIndex, "");
                 console.log("✅ Set BO");
+                // CLEAR the error flag - user has taken action
+                spreadsheetData[row]["_missingDrawing"] = false;
             }
             
             // End editing to close any editors
             if (hot.getActiveEditor()) {
                 hot.getActiveEditor().finishEditing();
             }
+            
         }      
 
         // ─────────────────────────────────────────────────────────────────────
@@ -2040,6 +2045,12 @@
                         if (prop === 'Type') {
                             console.log(`🔄 Type changed to: "${newVal}" for row ${row}`);
 
+                            // CLEAR missing drawing flag when user manually sets Type to BO or Missing Drawing
+                            if (newVal === 'BO' || newVal === TYPE_DISPLAY_NAMES["Missing Childpart"]) {
+                                spreadsheetData[row]["_missingDrawing"] = false; // ← ADD THIS
+                                console.log(`✅ Cleared _missingDrawing flag for row ${row}`);
+                            }
+                            
                             // If changing TO Child Part, validate existing Matched Childpart value
                             if (newVal === 'Child Part') {
                                 const rowData = hot.getSourceDataAtRow(row);
