@@ -1735,8 +1735,8 @@
                             }
 
                             // After both checks, trigger appropriate notification
-                            if ((warningNeeded || errorNeeded) && !hasWarningNotificationShown) {
-                                hasWarningNotificationShown = true;
+                            if ((warningNeeded || errorNeeded) ) {
+                                // hasWarningNotificationShown = true; && !hasWarningNotificationShown
                                 refreshNotifications();
                             }
 
@@ -2538,7 +2538,7 @@ function refreshNotifications() {
         
         // PRIORITY 2: Low Similarity Warning - YELLOW ICON + NOTIFICATION  
         if (rowData._similarityScore > 0 && rowData._similarityScore < 0.95) {
-            if (!highestPriorityNotification || highestPriorityNotification.priority > 2) {
+            if (!highestPriorityNotification) {
                 highestPriorityNotification = { 
                     message: "Verify Part Number", 
                     type: "warning",
