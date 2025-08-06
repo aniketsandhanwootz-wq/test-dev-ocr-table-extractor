@@ -2538,7 +2538,7 @@ function refreshNotifications() {
         
         // PRIORITY 2: Low Similarity Warning - YELLOW ICON + NOTIFICATION  
         if (rowData._similarityScore > 0 && rowData._similarityScore < 0.95) {
-            if (!highestPriorityNotification) {
+            if (!highestPriorityNotification || highestPriorityNotification.priority > 2) {
                 highestPriorityNotification = { 
                     message: "Verify Part Number", 
                     type: "warning",
