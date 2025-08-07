@@ -2527,6 +2527,15 @@
                 const rowData = hot.getSourceDataAtRow(row);
                 if (!rowData) continue;
                 
+        // ADD THESE DEBUG LOGS:
+        console.log(`🔍 Row ${row} debug:`, {
+            rowData: rowData,
+            similarityScore: rowData._similarityScore,
+            hasScore: rowData._similarityScore !== undefined,
+            scoreValue: rowData._similarityScore,
+            isLowSimilarity: rowData._similarityScore > 0 && rowData._similarityScore < 0.95
+        });            
+                
                 const type = rowData.Type?.trim();
                 const qty = rowData.Quantity?.text?.trim(); 
                 const partNumber = rowData["Matched Childpart"]?.trim();
