@@ -1725,6 +1725,10 @@
 
                                 if (partText) {
                                     const sim = sequentialCharacterMatch(partText, value.toString());
+
+                                    // UPDATE THE DATA MODEL WITH CALCULATED SIMILARITY
+                                    spreadsheetData[row]["_similarityScore"] = sim;
+
                                     if (sim < 0.95) {
                                         td.classList.add("low-similarity-cell");
                                         warningNeeded = true;
@@ -2509,68 +2513,69 @@
         });
 
 
-// Complete refreshNotifications function - handles all error/warning types
-function refreshNotifications() {
-    // Reset notification flag to allow new notifications
-    hasWarningNotificationShown = false;
-    
-    let highestPriorityNotification = null;
-    
-    // Scan all rows for current issues
-    for (let row = 0; row < hot.countRows(); row++) {
-        const rowData = hot.getSourceDataAtRow(row);
-        if (!rowData) continue;
-        
-        const type = rowData.Type?.trim();
-        const qty = rowData.Quantity?.text?.trim(); 
-        const partNumber = rowData["Matched Childpart"]?.trim();
-        
-        
-        // PRIORITY 1: Missing Drawing Error (OCR mismatch) - RED ICON + NOTIFICATION
-        if (rowData["_missingDrawing"]) {
-            highestPriorityNotification = { 
-                message: "Part Number Not Found", 
-                type: "error",
-                priority: 1 
-            };
-            break; // Highest priority, stop checking
-        }
-        
-        // PRIORITY 2: Low Similarity Warning - YELLOW ICON + NOTIFICATION  
-        if (rowData._warningNeeded) {
-            if (!highestPriorityNotification) {
-                highestPriorityNotification = { 
-                    message: "Verify Part Number", 
-                    type: "warning",
-                    priority: 2 
-                };
+        // Complete refreshNotifications function - handles all error/warning types
+        function refreshNotifications() {
+            // Reset notification flag to allow new notifications
+            hasWarningNotificationShown = false;
+            
+            let highestPriorityNotification = null;
+            
+            // Scan all rows for current issues
+            for (let row = 0; row < hot.countRows(); row++) {
+                const rowData = hot.getSourceDataAtRow(row);
+                if (!rowData) continue;
+                
+                const type = rowData.Type?.trim();
+                const qty = rowData.Quantity?.text?.trim(); 
+                const partNumber = rowData["Matched Childpart"]?.trim();
+                
+                // Skip completely empty rows
+                if (!type && !qty && !partNumber) continue;
+
+                // PRIORITY 1: Missing Drawing Error (OCR mismatch) - RED ICON + NOTIFICATION
+                if (rowData["_missingDrawing"]) {
+                    highestPriorityNotification = { 
+                        message: "Part Number Not Found", 
+                        type: "error",
+                        priority: 1 
+                    };
+                    break; // Highest priority, stop checking
+                }
+                
+                // PRIORITY 2: Low Similarity Warning - YELLOW ICON + NOTIFICATION  
+                if (rowData._similarityScore > 0 && rowData._similarityScore < 0.95) {
+                    if (!highestPriorityNotification) {
+                        highestPriorityNotification = { 
+                            message: "Verify Part Number", 
+                            type: "warning",
+                            priority: 2 
+                        };
+                    }
+                }
+
+
+                
+                // NOTE: These have icons but NO real-time notifications (by design):
+                // - Invalid Quantity (red !) - Only shows notification on Submit
+                // - Type errors - Only shows notification on Submit  
+                // - These are handled in validateRequiredFields() for Submit-time validation
+            }
+            
+            // Show the highest priority notification found (if any)
+            if (highestPriorityNotification) {
+                showNotification(
+                    highestPriorityNotification.message, 
+                    highestPriorityNotification.type
+                );
+                hasWarningNotificationShown = true;
+                
+                console.log(`📢 Notification shown: ${highestPriorityNotification.message} (Priority ${highestPriorityNotification.priority})`);
+            } else {
+                console.log(`✅ No errors found - notifications cleared`);
+                // Optionally hide notification if no errors found
+                hideNotification(); // Uncomment if you want to auto-hide when all errors are fixed
             }
         }
-
-        // Skip completely empty rows
-        if (!type && !qty && !partNumber) continue;
-        
-        // NOTE: These have icons but NO real-time notifications (by design):
-        // - Invalid Quantity (red !) - Only shows notification on Submit
-        // - Type errors - Only shows notification on Submit  
-        // - These are handled in validateRequiredFields() for Submit-time validation
-    }
-    
-    // Show the highest priority notification found (if any)
-    if (highestPriorityNotification) {
-        showNotification(
-            highestPriorityNotification.message, 
-            highestPriorityNotification.type
-        );
-        hasWarningNotificationShown = true;
-        
-        console.log(`📢 Notification shown: ${highestPriorityNotification.message} (Priority ${highestPriorityNotification.priority})`);
-    } else {
-        console.log(`✅ No errors found - notifications cleared`);
-        // Optionally hide notification if no errors found
-        // hideNotification(); // Uncomment if you want to auto-hide when all errors are fixed
-    }
-}
 
         function validateRequiredFields() {
             const missingColumns = new Set();
