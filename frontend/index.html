@@ -2033,6 +2033,25 @@
                             const rowData = hot.getSourceDataAtRow(row);
                             const typeVal = rowData['Type'];
                             console.log(`🔍 Select Childpart changed: "${newVal}", Type: "${typeVal}"`);
+
+                            // ✅ ADD: Calculate similarity score for manual edits (MISSING!)
+                            const partCell = rowData["PartNumber"];
+                            const partText = partCell?.text || "";
+                            if (partText && newVal && newVal.toString().trim() !== '') {
+                                const sim = sequentialCharacterMatch(partText, newVal.toString());
+                                spreadsheetData[row]["_similarityScore"] = sim;
+                                console.log(`📊 Calculated similarity: ${sim} for "${partText}" vs "${newVal}"`);
+                                
+                                // Clear missing drawing flag if we have a reasonable match
+                                if (sim >= 0.85) {
+                                    spreadsheetData[row]["_missingDrawing"] = false;
+                                }
+                            } else if (!newVal || newVal.toString().trim() === '') {
+                                // Clear similarity when field is emptied
+                                delete spreadsheetData[row]["_similarityScore"];
+                            }                            
+ 
+
                             if (typeVal === 'Child Part' && newVal && newVal.toString().trim() !== '') {
                                 const isValid = windowChildParts.includes(newVal.toString());
                                 if (!isValid) {
@@ -2076,7 +2095,7 @@
                                     }
                                 }
                             }
-                            
+
                             refreshNotifications();
                         }
 
