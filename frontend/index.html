@@ -2034,22 +2034,28 @@
                             const typeVal = rowData['Type'];
                             console.log(`🔍 Select Childpart changed: "${newVal}", Type: "${typeVal}"`);
 
-                            // ✅ ADD: Calculate similarity score for manual edits (MISSING!)
+                            // ✅ ALWAYS clear missing drawing error when user provides ANY value
+                            if (newVal && newVal.toString().trim() !== '') {
+                                spreadsheetData[row]["_missingDrawing"] = false;
+                                console.log(`✅ Cleared _missingDrawing flag - user selected: "${newVal}"`);
+                            }
+
+                            
+                            // Calculate similarity score for manual edits
                             const partCell = rowData["PartNumber"];
                             const partText = partCell?.text || "";
                             if (partText && newVal && newVal.toString().trim() !== '') {
                                 const sim = sequentialCharacterMatch(partText, newVal.toString());
                                 spreadsheetData[row]["_similarityScore"] = sim;
-                                console.log(`📊 Calculated similarity: ${sim} for "${partText}" vs "${newVal}"`);
-                                
-                                // Clear missing drawing flag if we have a reasonable match
-                                if (sim >= 0.85) {
-                                    spreadsheetData[row]["_missingDrawing"] = false;
-                                }
+                                console.log(`📊 Calculated similarity: ${sim}`);
                             } else if (!newVal || newVal.toString().trim() === '') {
                                 // Clear similarity when field is emptied
                                 delete spreadsheetData[row]["_similarityScore"];
-                            }                            
+                                // Set missing drawing flag when field is cleared
+                                if (partText) {
+                                    spreadsheetData[row]["_missingDrawing"] = true;
+                                }
+                            }                         
  
 
                             if (typeVal === 'Child Part' && newVal && newVal.toString().trim() !== '') {
