@@ -2036,11 +2036,20 @@
 
                             // ✅ ALWAYS clear missing drawing error when user provides ANY value
                             if (newVal && newVal.toString().trim() !== '') {
+                                // Clear missing drawing error
                                 spreadsheetData[row]["_missingDrawing"] = false;
                                 console.log(`✅ Cleared _missingDrawing flag - user selected: "${newVal}"`);
+
+                                // Auto-set Type to "Child Part" if:
+                                // 1. User selected a valid childpart from the list
+                                // 2. Type is currently empty/null
+                                if (windowChildParts.includes(newVal.toString()) && !typeVal) {
+                                    const typeColIndex = hot.propToCol('Type');
+                                    hot.setDataAtCell(row, typeColIndex, 'Child Part');
+                                    console.log(`✅ Auto-set Type to "Child Part" for: "${newVal}"`);
+                                }   
                             }
 
-                            
                             // Calculate similarity score for manual edits
                             const partCell = rowData["PartNumber"];
                             const partText = partCell?.text || "";
