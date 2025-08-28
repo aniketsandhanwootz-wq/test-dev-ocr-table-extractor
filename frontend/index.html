@@ -1665,15 +1665,6 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             const used = getUsedChildparts(currentRow);
                             const available = drawingOptions.filter(opt => !used.has(opt) || opt === currentValue);
 
-                            // If Type is preset to BO or Missing Drawing, do not filter by "used" —
-                            // just return the normal options (keeps existing behavior intact).
-                            if (currentType === "BO" || currentType === TYPE_DISPLAY_NAMES["Missing Childpart"]) {
-                                const base = ["", ...available]; // still allow dynamic set so it shrinks as others choose
-                                if (!query || !query.trim()) return callback(base);
-                                const filtered = base.filter(o => (o || "").toLowerCase().includes(query.toLowerCase()));
-                                return callback(filtered);
-                            }
-
                             // Default (Child Part or empty Type):
                             if (!query || query.trim() === "") {
                                 const base = ["", ...available];
@@ -2067,17 +2058,16 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             // If current Type is empty and the new value is a valid option,
                             // our logic auto-sets it to "Child Part" (see below). We must
                             // check duplicates against that prospective state as well.
-                            const prospectiveIsChildPart = (typeVal === 'Child Part') ||
-                                                           (!typeVal && newVal && windowChildParts.includes(newVal.toString()));
-                            if (prospectiveIsChildPart && newVal && newVal.toString().trim() !== '') {
+                            // Skip running the duplicate check on our own synthetic clear
+                            if (source !== 'validation-duplicate') {
+                              const prospectiveIsChildPart = (typeVal === 'Child Part') ||
+                                                             (!typeVal && newVal && windowChildParts.includes(newVal.toString()));
+                              if (prospectiveIsChildPart && newVal && newVal.toString().trim() !== '') {
                                 if (isDuplicateChildpartSelection(newVal.toString(), row)) {
-                                    console.warn(`⛔ Duplicate childpart selection blocked: "${newVal}" already used in another row`);
-                                    showNotification(`"${newVal}" is already selected in another row. Each child part can be used only once.`, 'error');
-                                    // Clear the attempted duplicate and stop further processing for this change
-                                    hot.setDataAtCell(row, colIndex, '', 'validation-duplicate');
-                                    refreshNotifications();
-                                    return;
+                                  hot.setDataAtCell(row, colIndex, '', 'validation-duplicate');
+                                  return;
                                 }
+                              }
                             }
 
                             // ✅ ALWAYS clear missing drawing error when user provides ANY value
