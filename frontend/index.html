@@ -1233,37 +1233,14 @@
             "Missing Childpart": "Missing Drawing"
         };
 
-let spreadsheetData = [];
-let columnsList = [];
-let hot;
-let windowChildParts = []; // expose on window for debugging
-let _cutBackup = [];
-let hasWarningNotificationShown = false;
-let lastOcrBomItem = 0;
-let rowID = null;
-
-// === Helper: track used childparts in rows marked as "Child Part" ===
-function getUsedChildparts(excludeRow = -1) {
-    const used = new Set();
-    for (let r = 0; r < spreadsheetData.length; r++) {
-        if (r === excludeRow) continue;
-        const row = spreadsheetData[r];
-        if (!row) continue;
-        const typeVal = (row.Type || "").trim();
-        const mapped = (row["Matched Childpart"] || "").toString().trim();
-        if (mapped) {
-            used.add(mapped);
-        }
-    }
-    return used;
-}
-
-// === Helper: check if a selection would be a duplicate in "Child Part" rows ===
-function isDuplicateChildpartSelection(value, rowIndex) {
-    if (!value) return false;
-    const used = getUsedChildparts(rowIndex);
-    return used.has(value.toString().trim());
-}
+        let spreadsheetData = [];
+        let columnsList = [];
+        let hot;
+        let windowChildParts = []; // expose on window for debugging
+        let _cutBackup = [];
+        let hasWarningNotificationShown = false;
+        let lastOcrBomItem = 0;
+        let rowID = null;
         // Fetch query-params (project, part, parentdrgnum) on load and fetch childParts
         window.addEventListener("DOMContentLoaded", async () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -1649,47 +1626,51 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             ? "dropdown"
                             : "text",
                     source: isMatched
+                        // ? ["", ...drawingOptions]
                         ? function(query, callback) {
-                            // Determine current row from selection
+                            // Get current row type 
                             const selection = hot.getSelected();
                             const currentRow = selection ? selection[0][0] : 0;
-                            const rowData = hot.getSourceDataAtRow(currentRow) || {};
-                            const currentType = (rowData?.Type || "").trim();
-                            const currentValue = (rowData?.["Matched Childpart"] || "").toString().trim();
-
+                            const rowData = hot.getSourceDataAtRow(currentRow);
+                            const currentType = rowData?.Type?.trim() || "";
+                            
                             // Always hide overlay when dropdown is about to show options
-                            hideSmartOverlay();
+                            hideSmartOverlay();   
 
-                            // Build dynamic option set: remove values already used by other "Child Part" rows,
-                            // but allow the current cell's already-selected value to remain visible for edits.
-                            const used = getUsedChildparts(currentRow);
-                            const available = drawingOptions.filter(opt => !used.has(opt) || opt === currentValue);
-
-                            // Default (Child Part or empty Type):
-                            if (!query || query.trim() === "") {
-                                const base = ["", ...available];
-                                return callback(base);
+                            // If Type is already BO or Missing Drawing, show normal options only
+                            if (currentType === "BO" || currentType === TYPE_DISPLAY_NAMES["Missing Childpart"]) {
+                                callback(["", ...drawingOptions]);
+                                return;
                             }
-
-                            // Filter based on the query against the available set
-                            const filteredOptions = available.filter(option =>
+                            
+                            // If no query, show all normal options
+                            if (!query || query.trim() === "") {
+                                callback(["", ...drawingOptions]);
+                                return;
+                            }
+                            
+                            // Filter existing options based on query
+                            const filteredOptions = drawingOptions.filter(option => 
                                 option.toLowerCase().includes(query.toLowerCase())
                             );
-
+                            
+                            // If we have matches, show normal filtered dropdown
                             if (filteredOptions.length > 0) {
-                                return callback(["", ...filteredOptions]);
+                                callback(["", ...filteredOptions]);
+                                return;
                             }
-
-                            // No matches - show empty dropdown and trigger the smart overlay
-                            callback([]);
+                            
+                            // No matches found - return dummy option to keep dropdown open
+                            callback([]); // Empty dropdown
                             setTimeout(() => {
+                                console.log("🔍 Attempting to show smart overlay for row:", currentRow);
                                 showSmartOverlayAtCell(currentRow);
-                            }, 100);
-                        }
+                            }, 100); // ← Increased delay
+                        }                       
                         : isType
                             ? ["Child Part", "BO", TYPE_DISPLAY_NAMES["Missing Childpart"]]
                             : undefined,
-
+        
                     strict: false,
                     allowInvalid: true,
                     readOnly: false, // all columns remain editable
@@ -2053,23 +2034,6 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             const typeVal = rowData['Type'];
                             console.log(`🔍 Select Childpart changed: "${newVal}", Type: "${typeVal}"`);
 
-                            // --- Duplicate guard for "Child Part" mapping ---
-                            // Determine what the Type will be for this row after this change.
-                            // If current Type is empty and the new value is a valid option,
-                            // our logic auto-sets it to "Child Part" (see below). We must
-                            // check duplicates against that prospective state as well.
-                            // Skip running the duplicate check on our own synthetic clear
-                            if (source !== 'validation-duplicate') {
-                              const prospectiveIsChildPart = (typeVal === 'Child Part') ||
-                                                             (!typeVal && newVal && windowChildParts.includes(newVal.toString()));
-                              if (prospectiveIsChildPart && newVal && newVal.toString().trim() !== '') {
-                                if (isDuplicateChildpartSelection(newVal.toString(), row)) {
-                                  hot.setDataAtCell(row, colIndex, '', 'validation-duplicate');
-                                  return;
-                                }
-                              }
-                            }
-
                             // ✅ ALWAYS clear missing drawing error when user provides ANY value
                             if (newVal && newVal.toString().trim() !== '') {
                                 // Clear missing drawing error
@@ -2101,6 +2065,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                                     spreadsheetData[row]["_missingDrawing"] = true;
                                 }
                             }                         
+ 
 
                             if (typeVal === 'Child Part' && newVal && newVal.toString().trim() !== '') {
                                 const isValid = windowChildParts.includes(newVal.toString());
