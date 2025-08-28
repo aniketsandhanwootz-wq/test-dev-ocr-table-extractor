@@ -1251,7 +1251,7 @@ function getUsedChildparts(excludeRow = -1) {
         if (!row) continue;
         const typeVal = (row.Type || "").trim();
         const mapped = (row["Matched Childpart"] || "").toString().trim();
-        if (typeVal === "Child Part" && mapped) {
+        if (mapped) {
             used.add(mapped);
         }
     }
