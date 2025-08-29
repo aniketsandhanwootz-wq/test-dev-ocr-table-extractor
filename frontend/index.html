@@ -1685,6 +1685,12 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             const currentRow = selection ? selection[0][0] : 0;
                             const rowData = hot.getSourceDataAtRow(currentRow) || {};
                             const currentType = (rowData?.Type || "").trim();
+
+                            // 🚫 Block dropdown for BO and Missing Drawing rows
+                            if (currentType === "BO" || currentType === TYPE_DISPLAY_NAMES["Missing Childpart"]) {
+                               return callback([]);  // empty options → behaves like plain text
+                            }
+
                             const currentValue = (rowData?.["Matched Childpart"] || "").toString().trim();
 
                             // Always hide overlay when dropdown is about to show options
