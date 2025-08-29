@@ -1258,22 +1258,6 @@ function resetNotificationGate() {
   _notifGate.active = false;
 }
 
-// === Success hold to protect green banner from live refreshes ===
-let _notifHoldUntil = 0;
-function holdNotifications(ms = 2000) {
-  _notifHoldUntil = Date.now() + ms;
-}
-
-// Auto-hold successes centrally so submit handlers don't need to remember
-const __showNotification = window.showNotification;
-window.showNotification = function(msg, type) {
-  const r = __showNotification.apply(this, arguments);
-  if (type === 'success') {
-    holdNotifications(2000); // ~2s shield against renderer refreshes
-  }
-  return r;
-};
-
 // === Helper: track used childparts in rows marked as "Child Part" ===
 function getUsedChildparts(excludeRow = -1) {
     const used = new Set();
@@ -1984,7 +1968,6 @@ function isDuplicateChildpartSelection(value, rowIndex) {
             hot.addHook('afterChange', (changes, source) => {
             
                 if (!changes) return;
-                if (source === 'validation-duplicate') return;
                 if (source === 'edit') {
                   resetNotificationGate();
                 }
@@ -2691,7 +2674,13 @@ function isDuplicateChildpartSelection(value, rowIndex) {
             } else {
                 console.log(`✅ No errors found - notifications cleared`);
                 // Optionally hide notification if no errors found
-                hideNotification(); // Uncomment if you want to auto-hide when all errors are fixed
+                const area = document.getElementById('notification-area');
+                if (area && area.classList.contains('notification-success')) {
+                    // If success is showing, delay hiding slightly so it remains visible
+                    setTimeout(() => hideNotification(), 1000);
+                } else {
+                    hideNotification();
+                }
             }
         }
 
