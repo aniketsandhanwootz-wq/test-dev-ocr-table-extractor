@@ -1495,14 +1495,30 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                 `;
                 
                 // Click handlers
+                // overlay.addEventListener('click', (e) => {
+                //     const action = e.target.dataset.action;
+                //     console.log("🖱️ Clicked action:", action);
+                //     if (action) {
+                //         handleSmartOption(action, row);
+                //         hideSmartOverlay();
+                //     }
+                // });
                 overlay.addEventListener('click', (e) => {
-                    const action = e.target.dataset.action;
-                    console.log("🖱️ Clicked action:", action);
-                    if (action) {
-                        handleSmartOption(action, row);
-                        hideSmartOverlay();
-                    }
+                  // Find the actionable item even if you clicked its text/padding
+                  const btn = e.target.closest('.smart-option-item[data-action]');
+                  if (!btn) return;
+                
+                  e.preventDefault();
+                  e.stopPropagation();
+                
+                  // Close any active HOT editor so it doesn't undo our programmatic change
+                  const editor = hot.getActiveEditor();
+                  if (editor && editor.isOpened()) editor.finishEditing();
+                
+                  handleSmartOption(btn.dataset.action, row);
+                  hideSmartOverlay();
                 });
+
                 
                 document.body.appendChild(overlay);
                 console.log("✅ Overlay added to DOM");
