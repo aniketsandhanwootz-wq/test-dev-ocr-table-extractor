@@ -1763,7 +1763,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                                     // UPDATE THE DATA MODEL WITH CALCULATED SIMILARITY
                                     spreadsheetData[row]["_similarityScore"] = sim;
 
-                                    if (sim < 0.95) {
+                                    if (rowData.Type === "Child Part" && sim < 0.95) {
                                         td.classList.add("low-similarity-cell");
                                         warningNeeded = true;
                                     } else {
