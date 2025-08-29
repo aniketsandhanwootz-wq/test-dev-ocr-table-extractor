@@ -1246,16 +1246,33 @@ let rowID = null;
 // We gate refreshes that come from renderers/live validation so they don't
 // stomp success/info banners or thrash during frequent re-renders.
 const _notifGate = { active: false, keys: new Set() };
-function requestNotificationRefreshOnce(key = 'live') {
-  if (_notifGate.active && _notifGate.keys.has(key)) return;
+// Replace your requestNotificationRefreshOnce with this:
+function requestNotificationRefreshOnce() {
+  // If a success/info hold is active, skip live refreshes
+  if (typeof _notifHoldUntil === 'number' && Date.now() < _notifHoldUntil) return;
+  if (_notifGate.active) return;        // ← single boolean gate
   _notifGate.active = true;
-  _notifGate.keys.add(key);
   if (typeof refreshNotifications === 'function') refreshNotifications();
 }
 function resetNotificationGate() {
   _notifGate.active = false;
-  _notifGate.keys.clear();
 }
+
+// === Success hold to protect green banner from live refreshes ===
+let _notifHoldUntil = 0;
+function holdNotifications(ms = 2000) {
+  _notifHoldUntil = Date.now() + ms;
+}
+
+// Auto-hold successes centrally so submit handlers don't need to remember
+const __showNotification = window.showNotification;
+window.showNotification = function(msg, type) {
+  const r = __showNotification.apply(this, arguments);
+  if (type === 'success') {
+    holdNotifications(2000); // ~2s shield against renderer refreshes
+  }
+  return r;
+};
 
 // === Helper: track used childparts in rows marked as "Child Part" ===
 function getUsedChildparts(excludeRow = -1) {
@@ -1967,6 +1984,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
             hot.addHook('afterChange', (changes, source) => {
             
                 if (!changes) return;
+                if (source === 'validation-duplicate') return;
                 if (source === 'edit') {
                   resetNotificationGate();
                 }
