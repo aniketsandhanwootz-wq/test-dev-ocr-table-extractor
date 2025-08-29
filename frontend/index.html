@@ -1238,7 +1238,7 @@ let columnsList = [];
 let hot;
 let windowChildParts = []; // expose on window for debugging
 let _cutBackup = [];
-// let hasWarningNotificationShown = false;
+let hasWarningNotificationShown = false;
 let lastOcrBomItem = 0;
 let rowID = null;
 
@@ -2172,7 +2172,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             console.log(`🔄 Type changed to: "${newVal}" for row ${row}`);
                         }
                     });
-                    // hasWarningNotificationShown = false;            
+                    hasWarningNotificationShown = false;            
                     hot.render();
 
                     refreshNotifications(); // Always check current state after user action
@@ -2609,7 +2609,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
         // Complete refreshNotifications function - handles all error/warning types
         function refreshNotifications() {
             // Reset notification flag to allow new notifications
-            // hasWarningNotificationShown = false;
+            hasWarningNotificationShown = false;
             
             let highestPriorityNotification = null;
             
@@ -2667,7 +2667,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                     highestPriorityNotification.message, 
                     highestPriorityNotification.type
                 );
-                // hasWarningNotificationShown = true;
+                hasWarningNotificationShown = true;
                 
                 console.log(`📢 Notification shown: ${highestPriorityNotification.message} (Priority ${highestPriorityNotification.priority})`);
             } else {
