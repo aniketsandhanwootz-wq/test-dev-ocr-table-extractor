@@ -1238,18 +1238,17 @@ let columnsList = [];
 let hot;
 let windowChildParts = []; // expose on window for debugging
 let _cutBackup = [];
-let hasWarningNotificationShown = false;
+// let hasWarningNotificationShown = false;
 let lastOcrBomItem = 0;
 let rowID = null;
 
 // === One-shot notification gate (pre-submit live notifications) ===
 // We gate refreshes that come from renderers/live validation so they don't
 // stomp success/info banners or thrash during frequent re-renders.
-const _notifGate = { active: false, keys: new Set() };
+const _notifGate = { active: false };
 // Replace your requestNotificationRefreshOnce with this:
 function requestNotificationRefreshOnce() {
   // If a success/info hold is active, skip live refreshes
-  if (typeof _notifHoldUntil === 'number' && Date.now() < _notifHoldUntil) return;
   if (_notifGate.active) return;        // ← single boolean gate
   _notifGate.active = true;
   if (typeof refreshNotifications === 'function') refreshNotifications();
@@ -1776,7 +1775,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             // After both checks, trigger appropriate notification
                             if ((warningNeeded || errorNeeded) ) {
                                 // hasWarningNotificationShown = true; && !hasWarningNotificationShown
-                                requestNotificationRefreshOnce(`renderer:${row}:${prop}`);
+                                requestNotificationRefreshOnce();
                             }
 
                         } else if (isOCRcol) {
@@ -2173,7 +2172,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             console.log(`🔄 Type changed to: "${newVal}" for row ${row}`);
                         }
                     });
-                    hasWarningNotificationShown = false;                
+                    // hasWarningNotificationShown = false;            
                     hot.render();
 
                     refreshNotifications(); // Always check current state after user action
@@ -2610,7 +2609,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
         // Complete refreshNotifications function - handles all error/warning types
         function refreshNotifications() {
             // Reset notification flag to allow new notifications
-            hasWarningNotificationShown = false;
+            // hasWarningNotificationShown = false;
             
             let highestPriorityNotification = null;
             
@@ -2668,19 +2667,17 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                     highestPriorityNotification.message, 
                     highestPriorityNotification.type
                 );
-                hasWarningNotificationShown = true;
+                // hasWarningNotificationShown = true;
                 
                 console.log(`📢 Notification shown: ${highestPriorityNotification.message} (Priority ${highestPriorityNotification.priority})`);
             } else {
                 console.log(`✅ No errors found - notifications cleared`);
                 // Optionally hide notification if no errors found
                 const area = document.getElementById('notification-area');
-                if (area && area.classList.contains('notification-success')) {
-                    // If success is showing, delay hiding slightly so it remains visible
-                    setTimeout(() => hideNotification(), 2000);
-                } else {
+                    if (area && area.classList.contains('notification-success')) {
+                      return; // let showNotification's own success timer hide it
+                    }
                     hideNotification();
-                }
             }
         }
 
