@@ -1503,20 +1503,19 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                 //         hideSmartOverlay();
                 //     }
                 // });
-                overlay.addEventListener('click', (e) => {
-                  // Find the actionable item even if you clicked its text/padding
+                overlay.addEventListener('mousedown', (e) => {
                   const btn = e.target.closest('.smart-option-item[data-action]');
                   if (!btn) return;
                 
                   e.preventDefault();
                   e.stopPropagation();
                 
-                  // Close any active HOT editor so it doesn't undo our programmatic change
-                  const editor = hot.getActiveEditor();
-                  if (editor && editor.isOpened()) editor.finishEditing();
+                  const action = btn.dataset.action;
                 
-                  handleSmartOption(btn.dataset.action, row);
-                  hideSmartOverlay();
+                  requestAnimationFrame(() => {
+                    handleSmartOption(action, row);  // ✅ reuse your existing function
+                    hideSmartOverlay();
+                  });
                 });
 
                 
