@@ -2645,7 +2645,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                 }
                 
                 // PRIORITY 2: Low Similarity Warning - YELLOW ICON + NOTIFICATION  
-                if (rowData._similarityScore !== undefined && rowData._similarityScore < 0.95) {
+                if (rowData.Type === "Child Part" && rowData._similarityScore !== undefined && rowData._similarityScore < 0.95) {
                     if (!highestPriorityNotification) {
                         highestPriorityNotification = { 
                             message: "Part Manually Selected", 
