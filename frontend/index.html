@@ -2812,7 +2812,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             quantity: qty,
                             description: row.Description?.text?.trim() || "",
                             material: row.Material?.text?.trim() || "",
-                            drawingNumber: row["Matched Childpart"] || "",
+                            drawingNumber = (row.get("Matched Childpart") or "").replace(".", ""),  //also change in backend at matchedPart in missing Drawing
                             ocrWarning: getRowWarning(row)
                         });
                     } else if (type === "BO") {
