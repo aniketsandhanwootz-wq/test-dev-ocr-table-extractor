@@ -1077,6 +1077,7 @@ async def generate_missing_childpart_pdf(request: Request):
 
         payload = await request.json()
         matched_part = payload.get("matchedPart")
+        matched_part = matched_part.replace(".", "") if matched_part else None
 
         if not matched_part or not project or not part_number:
             return JSONResponse(
