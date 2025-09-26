@@ -2091,23 +2091,56 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             const rowData = hot.getSourceDataAtRow(row);
                             const typeVal = rowData['Type'];
                             console.log(`🔍 Select Childpart changed: "${newVal}", Type: "${typeVal}"`);
-
+                            
                             // --- Duplicate guard for "Child Part" mapping ---
                             // Determine what the Type will be for this row after this change.
                             // If current Type is empty and the new value is a valid option,
                             // our logic auto-sets it to "Child Part" (see below). We must
                             // check duplicates against that prospective state as well.
-                            // Skip running the duplicate check on our own synthetic clear
-                            if (source !== 'validation-duplicate') {
-                              const prospectiveIsChildPart = (typeVal === 'Child Part') ||
-                                                             (!typeVal && newVal && windowChildParts.includes(newVal.toString()));
-                              if (prospectiveIsChildPart && newVal && newVal.toString().trim() !== '') {
-                                if (isDuplicateChildpartSelection(newVal.toString(), row)) {
-                                  hot.setDataAtCell(row, colIndex, '', 'validation-duplicate');
-                                  return;
-                                }
+                            // Now modified the code to include both the enforce PartNumber from the list and duplicate error guard
+                           
+                            // 🛡️ Skip logic for synthetic clears
+                            if (source === 'validation-forced' || source === 'validation-duplicate') return;
+                        
+                            // ✅ Enforce value-from-list check
+                            const colIndex = hot.propToCol(prop);
+                            const cleanedValue = newVal?.toString().trim() || "";
+                            const isChildPart = rowData['Type'] === 'Child Part';
+                            const isValid = windowChildParts.includes(cleanedValue);
+                            if (isChildPart && cleanedValue && !isValid) {
+                              console.warn(`⚠️ Invalid value: "${cleanedValue}" not in allowed childparts — clearing`);
+                              hot.setDataAtCell(row, colIndex, '', 'validation-forced');
+                              spreadsheetData[row]["_missingDrawing"] = true;
+                              return;
+                             }
+                        
+                            // ✅ Duplicate check
+                            const prospectiveIsChildPart = isChildPart || (!rowData['Type'] && cleanedValue && isValid);
+                            if (prospectiveIsChildPart && cleanedValue) {
+                              if (isDuplicateChildpartSelection(cleanedValue, row)) {
+                                console.warn(`⚠️ Duplicate childpart: "${cleanedValue}" — clearing`);
+                                hot.setDataAtCell(row, colIndex, '', 'validation-duplicate');
+                                return;
                               }
                             }
+                        
+                           // ✅ If valid, clear missing flag
+                           if (cleanedValue && isValid) {
+                             spreadsheetData[row]["_missingDrawing"] = false;
+                           }
+                            
+                            // Skip running the duplicate check on our own synthetic clear
+                            // if (source !== 'validation-duplicate') {
+                            //   const prospectiveIsChildPart = (typeVal === 'Child Part') ||
+                            //                                  (!typeVal && newVal && windowChildParts.includes(newVal.toString()));
+                            //   if (prospectiveIsChildPart && newVal && newVal.toString().trim() !== '') {
+                            //     if (isDuplicateChildpartSelection(newVal.toString(), row)) {
+                            //       hot.setDataAtCell(row, colIndex, '', 'validation-duplicate');
+                            //       return;
+                            //     }
+                            //   }
+                            // }
+
 
                             // ✅ ALWAYS clear missing drawing error when user provides ANY value
                             if (newVal && newVal.toString().trim() !== '') {
