@@ -2049,44 +2049,8 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                     return;
                 }
 
-                // ===== 3. STANDARD EDIT branch =================================
-                if (source === 'edit') {
-                    changes.forEach(([row, prop, oldVal, newVal]) => {
-                        if (oldVal === newVal) return;
-
-                        const colIndex = hot.propToCol(prop);
-                        // generic edited marker
-                        hot.setCellMeta(row, colIndex, 'className', 'edited-cell');
-
-                        // OCR columns: zero confidence & force default bg
-                        if (['Quantity.text', 'Description.text', 'Material.text'].includes(prop)) {
-                            spreadsheetData[row][prop.split('.')[0]].confidence = 0;
-                            // --- Begin new logic for className to preserve quantity-error-cell ---
-                            // Get existing classes
-                            let existingClasses = hot.getCellMeta(row, colIndex).className || "";
-                            let classes = new Set(existingClasses.split(/\s+/).filter(Boolean));
-
-                            // Add edited markers
-                            classes.add('edited-cell');
-                            classes.add('user-edited-ocr');
-
-                            // Preserve quantity-error-cell if still invalid
-                            if (prop === 'Quantity.text') {
-                                const textValue = spreadsheetData[row].Quantity?.text?.trim();
-                                const isInvalid = textValue && !/^\d+$/.test(textValue);
-                                if (isInvalid) {
-                                    classes.add('quantity-error-cell');
-                                } else {
-                                    classes.delete('quantity-error-cell');
-                                }
-                            }
-
-                            hot.setCellMeta(row, colIndex, 'className', Array.from(classes).join(' '));
-                            // --- End new logic ---
-                            console.log(`🔧 User edited OCR cell: Row ${row}, Column ${prop}`);
-                        }
-
-                        // Childpart validation against Type
+                // Childpart validation against Type
+                changes.forEach(([row, prop, oldVal, newVal]) => {
                         if (prop === 'Matched Childpart') {
                             const rowData = hot.getSourceDataAtRow(row);
                             const typeVal = rowData['Type'];
@@ -2186,7 +2150,47 @@ function isDuplicateChildpartSelection(value, rowIndex) {
 
                             refreshNotifications();
                             // BO type always allowed
+                        }                
+                    });
+
+                // ===== 3. STANDARD EDIT branch =================================
+                if (source === 'edit') {
+                    changes.forEach(([row, prop, oldVal, newVal]) => {
+                        if (oldVal === newVal) return;
+
+                        const colIndex = hot.propToCol(prop);
+                        // generic edited marker
+                        hot.setCellMeta(row, colIndex, 'className', 'edited-cell');
+
+                        // OCR columns: zero confidence & force default bg
+                        if (['Quantity.text', 'Description.text', 'Material.text'].includes(prop)) {
+                            spreadsheetData[row][prop.split('.')[0]].confidence = 0;
+                            // --- Begin new logic for className to preserve quantity-error-cell ---
+                            // Get existing classes
+                            let existingClasses = hot.getCellMeta(row, colIndex).className || "";
+                            let classes = new Set(existingClasses.split(/\s+/).filter(Boolean));
+
+                            // Add edited markers
+                            classes.add('edited-cell');
+                            classes.add('user-edited-ocr');
+
+                            // Preserve quantity-error-cell if still invalid
+                            if (prop === 'Quantity.text') {
+                                const textValue = spreadsheetData[row].Quantity?.text?.trim();
+                                const isInvalid = textValue && !/^\d+$/.test(textValue);
+                                if (isInvalid) {
+                                    classes.add('quantity-error-cell');
+                                } else {
+                                    classes.delete('quantity-error-cell');
+                                }
+                            }
+
+                            hot.setCellMeta(row, colIndex, 'className', Array.from(classes).join(' '));
+                            // --- End new logic ---
+                            console.log(`🔧 User edited OCR cell: Row ${row}, Column ${prop}`);
                         }
+
+                        // SHifted the if (prop === 'Matched ChildPart) from this place to keep that outside the source === edit
 
                         // In your afterChange handler, replace the Type validation section with:
                         if (prop === 'Type') {
