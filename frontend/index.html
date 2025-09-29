@@ -1728,6 +1728,59 @@ function isDuplicateChildpartSelection(value, rowIndex) {
 
                     strict: false,
                     allowInvalid: true,
+                    
+                    // ADD THIS VALIDATOR FUNCTION:
+                    validator: isMatched ? function(value, callback) {
+                        const selection = hot.getSelected();
+                        if (!selection) {
+                            callback(true);
+                            return;
+                        }
+                        
+                        const currentRow = selection[0][0];
+                        const rowData = hot.getSourceDataAtRow(currentRow) || {};
+                        const currentType = (rowData?.Type || "").trim();
+                        
+                        // Allow empty values
+                        if (!value || value.toString().trim() === "") {
+                            callback(true);
+                            return;
+                        }
+                        
+                        // BO and Missing Drawing rows: accept ANY value
+                        if (currentType === "BO" || currentType === TYPE_DISPLAY_NAMES["Missing Childpart"]) {
+                            callback(true);
+                            return;
+                        }
+                        
+                        // Child Part rows: strict validation
+                        if (currentType === "Child Part") {
+                            const isValidChildpart = windowChildParts.includes(value.toString());
+                            
+                            if (!isValidChildpart) {
+                                setTimeout(() => {
+                                    showNotification(`"${value}" is not a valid child part. Please select from the dropdown.`, 'error');
+                                }, 10);
+                                callback(false);
+                                return;
+                            }
+                            
+                            // Check for duplicates
+                            const isDuplicate = isDuplicateChildpartSelection(value.toString(), currentRow);
+                            if (isDuplicate) {
+                                setTimeout(() => {
+                                    showNotification(`"${value}" is already used in another Child Part row.`, 'error');
+                                }, 10);
+                                callback(false);
+                                return;
+                            }
+                        }
+                        
+                        // Default: accept value
+                        callback(true);
+                    } : undefined,
+
+                    
                     readOnly: false, // all columns remain editable
                     wordWrap: true, // ✅ enable per-column wrap
 
