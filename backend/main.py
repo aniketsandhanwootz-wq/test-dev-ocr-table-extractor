@@ -15,6 +15,9 @@ import tempfile
 import json
 import cloudinary
 import cloudinary.uploader
+import google.generativeai as genai
+import base64
+
 
 
 # Configure logging
@@ -40,6 +43,13 @@ DET_MODEL_DIR = os.path.join(PADDLE_HOME, "whl/det/en/en_PP-OCRv3_det_infer")
 REC_MODEL_DIR = os.path.join(PADDLE_HOME, "whl/rec/en/en_PP-OCRv3_rec_infer")
 CLS_MODEL_DIR = os.path.join(PADDLE_HOME, "whl/cls/ch_ppocr_mobile_v2.0_cls_infer")
 
+# Gemini API Configuration
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+    logger.info("✅ Gemini API configured")
+else:
+    logger.warning("⚠️ GEMINI_API_KEY not found - vision OCR will be disabled")
 # Check and log model paths on startup
 @app.on_event("startup")
 async def startup_event():
@@ -303,6 +313,56 @@ def advanced_cells(img):
         })
 
     return rows
+
+def gemini_extract_column(image_bytes, column_name):
+    """
+    Extract a single column from image using Gemini Vision.
+    Returns list of dicts: [{text: str, confidence: float}]
+    """
+    try:
+        if not GEMINI_API_KEY:
+            raise Exception("Gemini API key not configured")
+        
+        # Encode image to base64
+        image_b64 = base64.b64encode(image_bytes).decode('utf-8')
+        
+        # Column-specific prompts
+        prompts = {
+            "PartNumber": "Extract ONLY the part numbers from this table column. Return one part number per line, nothing else. If a cell has multiple lines, combine them into one line.",
+            "Quantity": "Extract ONLY the quantity numbers from this table column. Return one number per line. If a cell spans multiple lines, combine into single number.",
+            "Description": "Extract ONLY the description text from this table column. Return one description per line. If a cell has text on multiple lines, combine them with a space into ONE line.",
+            "Material": "Extract ONLY the material/specification text from this table column. Return one entry per line. If a cell has multiple lines, combine them into ONE line."
+        }
+        
+        prompt = prompts.get(column_name, prompts["Description"])
+        
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content([
+            prompt + "\n\nIMPORTANT: Each table row should produce exactly ONE line in your output, even if the cell text spans multiple lines in the image.",
+            {
+                'mime_type': 'image/jpeg',
+                'data': image_b64
+            }
+        ])
+        
+        # Parse response
+        text = response.text.strip()
+        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        
+        # Return in same format as PaddleOCR
+        result = []
+        for line in lines:
+            result.append({
+                "text": line,
+                "confidence": 0.95  # Gemini doesn't provide confidence, use high default
+            })
+        
+        logger.info(f"✅ Gemini extracted {len(result)} items for {column_name}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"❌ Gemini extraction failed: {e}")
+        raise
 
 # Working fine except multiline text extraction
 # def advanced_cells(img):
@@ -1181,6 +1241,47 @@ async def generate_missing_childpart_pdf(request: Request):
         print("❌ Error in generate_missing_childpart_pdf:")
         print(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
+    
+@app.post("/ocr-vision")
+async def ocr_vision_endpoint(request: Request):
+    """
+    Gemini Vision OCR endpoint for column extraction
+    """
+    try:
+        form = await request.form()
+        
+        if "image" not in form:
+            return JSONResponse(status_code=400, content={"error": "Missing image"})
+        if "column" not in form:
+            return JSONResponse(status_code=400, content={"error": "Missing column parameter"})
+        
+        image_file = form["image"]
+        column_name = form["column"]
+        
+        logger.info(f"🔍 Vision OCR request for column: {column_name}")
+        
+        # Read image bytes
+        image_bytes = await image_file.read()
+        
+        # Process with Gemini
+        def do_vision_ocr():
+            return gemini_extract_column(image_bytes, column_name)
+        
+        result = await asyncio.to_thread(do_vision_ocr)
+        
+        return {
+            "mode": "vision",
+            "column": column_name,
+            "table": result
+        }
+        
+    except Exception as e:
+        import traceback
+        logger.error(f"❌ Vision OCR error: {e}\n{traceback.format_exc()}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Vision OCR failed: {str(e)}"}
+        )
 
 
 
