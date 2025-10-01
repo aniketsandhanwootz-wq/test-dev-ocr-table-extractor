@@ -2459,9 +2459,8 @@ function isDuplicateChildpartSelection(value, rowIndex) {
             console.log("🚀 Starting OCR processing...");
             console.log("📁 Files to process:", Object.keys(fileStates));
 
-            // Map upload labels to internal column names
             const columnKeyMap = {
-                "Part Number": "PartNumber", // Maps to hidden PartNumber column
+                "Part Number": "PartNumber",
                 "Quantity": "Quantity",
                 "Description": "Description",
                 "Material": "Material",
@@ -2470,35 +2469,61 @@ function isDuplicateChildpartSelection(value, rowIndex) {
             for (const label in fileStates) {
                 const internalColumn = columnKeyMap[label];
 
-                // Add this safety check:
                 if (!internalColumn) {
                     console.warn(`⚠️ No mapping found for upload label: ${label}`);
                     continue;
                 }
 
-                console.log(`🔄 Processing ${label} → ${internalColumn}`);
+                console.log(`📄 Processing ${label} → ${internalColumn}`);
 
                 const formData = new FormData();
                 formData.append("image", fileStates[label]);
-                formData.append("mode", "table");
                 formData.append("column", internalColumn);
 
+                // 🔥 TRY GEMINI FIRST
+                let success = false;
                 try {
-                    const resp = await fetch("https://dev-ocr-table-extractor.onrender.com", {
+                    console.log(`🤖 Attempting Gemini Vision for ${label}...`);
+                    const visionResp = await fetch("https://dev-ocr-table-extractor.onrender.com/ocr-vision", {
                         method: "POST",
                         body: formData,
                     });
-                    const data = await resp.json();
 
-                    console.log(`✅ OCR response for ${label}:`, data);
+                    if (visionResp.ok) {
+                        const data = await visionResp.json();
+                        console.log(`✅ Gemini success for ${label}:`, data);
 
-                    if (data.table && Array.isArray(data.table)) {
-                        addColumn(data.table, internalColumn);
+                        if (data.table && Array.isArray(data.table)) {
+                            addColumn(data.table, internalColumn);
+                            success = true;
+                        }
                     } else {
-                        console.warn(`⚠️ No table data in response for ${label}`);
+                        console.warn(`⚠️ Gemini failed (${visionResp.status}), falling back to PaddleOCR...`);
                     }
-                } catch (err) {
-                    console.error(`❌ OCR error for ${label}:`, err);
+                } catch (visionErr) {
+                    console.warn(`⚠️ Gemini error, falling back to PaddleOCR:`, visionErr);
+                }
+
+                // 🔄 FALLBACK TO PADDLEOCR if Gemini failed
+                if (!success) {
+                    console.log(`🔄 Using PaddleOCR fallback for ${label}...`);
+                    formData.append("mode", "table");
+                    
+                    try {
+                        const ocrResp = await fetch("https://dev-ocr-table-extractor.onrender.com", {
+                            method: "POST",
+                            body: formData,
+                        });
+                        const data = await ocrResp.json();
+
+                        console.log(`✅ PaddleOCR response for ${label}:`, data);
+
+                        if (data.table && Array.isArray(data.table)) {
+                            addColumn(data.table, internalColumn);
+                        }
+                    } catch (ocrErr) {
+                        console.error(`❌ Both Gemini and PaddleOCR failed for ${label}:`, ocrErr);
+                    }
                 }
             }
 
@@ -2512,27 +2537,13 @@ function isDuplicateChildpartSelection(value, rowIndex) {
 
             Object.keys(fileStates).forEach(k => delete fileStates[k]);
             processBtn.disabled = true;
-            processBtn.textContent = originalText; // Restore original text
+            processBtn.textContent = originalText;
 
-            // Auto-close OCR panel
             const panel = document.getElementById("ocr-panel");
             panel.classList.remove("open");
 
             console.log("🏁 OCR processing completed");
         });
-
-        // ─────────────────────────────────────────────────────────────────────
-        // OCR Panel Toggle: Extract button opens, Close (X) closes
-        // ─────────────────────────────────────────────────────────────────────
-        document.getElementById("extract-btn").addEventListener("click", () => {
-            const panel = document.getElementById("ocr-panel");
-            panel.classList.add("open");
-        });
-        document.getElementById("ocr-close-btn").addEventListener("click", () => {
-            const panel = document.getElementById("ocr-panel");
-            panel.classList.remove("open");
-        });
-
         // ─────────────────────────────────────────────────────────────────────
         // Show/Hide help popover
         // ─────────────────────────────────────────────────────────────────────
