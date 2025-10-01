@@ -1297,7 +1297,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
             } else {
                 try {
                     const resp = await fetch(
-                        "https://dev-ocr-table-extractor.onrender.com/fetch-drawings",
+                        "https://ocr-gemini-test.onrender.com/fetch-drawings",
                         {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -2484,7 +2484,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                 let success = false;
                 try {
                     console.log(`🤖 Attempting Gemini Vision for ${label}...`);
-                    const visionResp = await fetch("https://dev-ocr-table-extractor.onrender.com/ocr-vision", {
+                    const visionResp = await fetch("https://ocr-gemini-test.onrender.com/ocr-vision", {
                         method: "POST",
                         body: formData,
                     });
@@ -2510,7 +2510,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                     formData.append("mode", "table");
                     
                     try {
-                        const ocrResp = await fetch("https://dev-ocr-table-extractor.onrender.com", {
+                        const ocrResp = await fetch("https://ocr-gemini-test.onrender.com", {
                             method: "POST",
                             body: formData,
                         });
