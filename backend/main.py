@@ -15,7 +15,8 @@ import tempfile
 import json
 import cloudinary
 import cloudinary.uploader
-import google.generativeai as genai
+#import google.generativeai as genai
+from openai import OpenAI
 import base64
 
 
@@ -44,12 +45,16 @@ REC_MODEL_DIR = os.path.join(PADDLE_HOME, "whl/rec/en/en_PP-OCRv3_rec_infer")
 CLS_MODEL_DIR = os.path.join(PADDLE_HOME, "whl/cls/ch_ppocr_mobile_v2.0_cls_infer")
 
 # Gemini API Configuration
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    logger.info("✅ Gemini API configured")
-else:
-    logger.warning("⚠️ GEMINI_API_KEY not found - vision OCR will be disabled")
+#GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+#if GEMINI_API_KEY:
+#    genai.configure(api_key=GEMINI_API_KEY)
+#    logger.info("✅ Gemini API configured")
+
+#Open AI API Configuration
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+#else:
+#    logger.warning("⚠️ GEMINI_API_KEY not found - vision OCR will be disabled")
 # Check and log model paths on startup
 @app.on_event("startup")
 async def startup_event():
@@ -313,7 +318,7 @@ def advanced_cells(img):
         })
 
     return rows
-
+'''
 def gemini_extract_column(image_bytes, column_name):
     """
     Extract a single column from image using Gemini Vision.
@@ -363,7 +368,60 @@ def gemini_extract_column(image_bytes, column_name):
     except Exception as e:
         logger.error(f"❌ Gemini extraction failed: {e}")
         raise
-
+'''
+def openai_extract_column(image_bytes, column_name):
+    """
+    Extract column using OpenAI Vision
+    """
+    try:
+        if not openai_client:
+            raise Exception("OpenAI API key not configured")
+        
+        # Encode to base64
+        image_b64 = base64.b64encode(image_bytes).decode('utf-8')
+        
+        # Column-specific prompts (same as Gemini)
+        prompts = {
+            "PartNumber": "Extract ONLY the part numbers from this table column. Return one part number per line, nothing else.",
+            "Quantity": "Extract ONLY the quantity numbers from this table column. Return one number per line.",
+            "Description": "Extract ONLY the description text from this table column. Return one description per line.",
+            "Material": "Extract ONLY the material/specification text from this table column. Return one entry per line."
+        }
+        
+        prompt = prompts.get(column_name, prompts["Description"])
+        
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt + "\n\nIMPORTANT: Each table row should produce exactly ONE line in your output."},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_b64}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            max_tokens=500
+        )
+        
+        # Parse response
+        text = response.choices[0].message.content.strip()
+        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        
+        # Return in PaddleOCR format
+        result = [{"text": line, "confidence": 0.95} for line in lines]
+        
+        logger.info(f"✅ OpenAI extracted {len(result)} items for {column_name}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"❌ OpenAI extraction failed: {e}")
+        raise
 # Working fine except multiline text extraction
 # def advanced_cells(img):
 
@@ -1265,7 +1323,7 @@ async def ocr_vision_endpoint(request: Request):
         
         # Process with Gemini
         def do_vision_ocr():
-            return gemini_extract_column(image_bytes, column_name)
+            return openai_extract_column(image_bytes, column_name)
         
         result = await asyncio.to_thread(do_vision_ocr)
         
