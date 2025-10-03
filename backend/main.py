@@ -391,7 +391,7 @@ def openai_extract_column(image_bytes, column_name):
         prompt = prompts.get(column_name, prompts["Description"])
         
         response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
                 {
                     "role": "user",
