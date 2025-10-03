@@ -411,6 +411,13 @@ def openai_extract_column(image_bytes, column_name):
         
         # Parse response
         text = response.choices[0].message.content.strip()
+        # Remove markdown code blocks if present
+        if text.startswith('```') and text.endswith('```'):
+            text = text[3:-3].strip()
+            # Also handle language tags like ```text
+            if text.startswith('text\n'):
+                text = text[5:].strip()
+
         lines = [line.strip() for line in text.split('\n') if line.strip()]
         
         # Return in PaddleOCR format
@@ -1299,7 +1306,7 @@ async def generate_missing_childpart_pdf(request: Request):
         print("❌ Error in generate_missing_childpart_pdf:")
         print(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
-    
+"""    
 @app.post("/ocr-vision")
 async def ocr_vision_endpoint(request: Request):
     """
@@ -1340,7 +1347,81 @@ async def ocr_vision_endpoint(request: Request):
             status_code=500,
             content={"error": f"Vision OCR failed: {str(e)}"}
         )
-
+"""
+@app.post("/ocr-vision")
+async def ocr_vision_endpoint(request: Request):
+    """
+    OpenAI Vision OCR endpoint with PaddleOCR fallback
+    """
+    try:
+        form = await request.form()
+        
+        if "image" not in form:
+            return JSONResponse(status_code=400, content={"error": "Missing image"})
+        if "column" not in form:
+            return JSONResponse(status_code=400, content={"error": "Missing column parameter"})
+        
+        image_file = form["image"]
+        column_name = form["column"]
+        
+        logger.info(f"🔍 Vision OCR request for column: {column_name}")
+        
+        # Read image bytes
+        image_bytes = await image_file.read()
+        
+        # Try OpenAI first
+        try:
+            def do_vision_ocr():
+                return openai_extract_column(image_bytes, column_name)
+            
+            result = await asyncio.to_thread(do_vision_ocr)
+            
+            # Validate response
+            if not result or len(result) == 0:
+                logger.warning("⚠️ OpenAI returned empty result, falling back to PaddleOCR")
+                raise Exception("Empty result from OpenAI")
+            
+            # Check for conversational response
+            first_text = result[0]["text"].lower()
+            conversational_indicators = ["how can i", "i can help", "please provide", "?", "sorry", "i cannot"]
+            if any(indicator in first_text for indicator in conversational_indicators):
+                logger.warning(f"⚠️ OpenAI returned conversational response: {first_text[:50]}, falling back to PaddleOCR")
+                raise Exception("Conversational response detected")
+            
+            logger.info(f"✅ OpenAI extracted {len(result)} items for {column_name}")
+            return {
+                "mode": "vision",
+                "column": column_name,
+                "table": result
+            }
+            
+        except Exception as openai_error:
+            logger.warning(f"⚠️ OpenAI failed: {openai_error}, attempting PaddleOCR fallback")
+            
+            # Fallback to PaddleOCR
+            nparr = np.frombuffer(image_bytes, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            
+            def do_paddle_ocr():
+                return simple_cells(rgb)
+            
+            paddle_result = await asyncio.to_thread(do_paddle_ocr)
+            
+            logger.info(f"✅ PaddleOCR fallback extracted {len(paddle_result)} items for {column_name}")
+            return {
+                "mode": "paddleocr_fallback",
+                "column": column_name,
+                "table": paddle_result
+            }
+        
+    except Exception as e:
+        import traceback
+        logger.error(f"❌ Both OpenAI and PaddleOCR failed: {e}\n{traceback.format_exc()}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"OCR failed: {str(e)}"}
+        )
 
 
 @app.get("/debug")
