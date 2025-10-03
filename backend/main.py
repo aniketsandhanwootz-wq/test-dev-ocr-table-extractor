@@ -31,7 +31,7 @@ print("🚀 Server has started and main.py is loaded")
 # Configure CORS - explicitly allow your GitHub Pages d
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://veenu-wootz.github.io", "http://localhost:3000", "null"],
+    allow_origins=["https://veenu-wootz.github.io", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "HEAD", "OPTIONS"],
     allow_headers=["*"],
