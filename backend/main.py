@@ -333,10 +333,10 @@ def gemini_extract_column(image_bytes, column_name):
         
         # Column-specific prompts
         prompts = {
-            "PartNumber": "Extract ONLY the part numbers from this table column. Return one part number per line, nothing else. If a cell has multiple lines, combine them into one line.",
-            "Quantity": "Extract ONLY the quantity numbers from this table column. Return one number per line. If a cell spans multiple lines, combine into single number.",
-            "Description": "Extract ONLY the description text from this table column. Return one description per line. If a cell has text on multiple lines, combine them with a space into ONE line.",
-            "Material": "Extract ONLY the material/specification text from this table column. Return one entry per line. If a cell has multiple lines, combine them into ONE line."
+            "PartNumber": "Extract valid text from this table column. Return whole cell content per line, nothing else. If a cell has multiple lines, combine them into one line.",
+            "Quantity": "Extract valid text from this table column. Return whole cell content per line, nothing else. If a cell has multiple lines, combine them into one line.",
+            "Description": "Extract valid text from this table column. Return whole cell content per line, nothing else. If a cell has multiple lines, combine them into one line.",
+            "Material": "Extract valid text from this table column. Return whole cell content per line, nothing else. If a cell has multiple lines, combine them into one line."
         }
         
         prompt = prompts.get(column_name, prompts["Description"])
@@ -382,10 +382,10 @@ def openai_extract_column(image_bytes, column_name):
         
         # Column-specific prompts (same as Gemini)
         prompts = {
-            "PartNumber": "Extract ONLY the part numbers from this table column. Return one part number per line, nothing else.",
-            "Quantity": "Extract ONLY the quantity numbers from this table column. Return one number per line.",
-            "Description": "Extract ONLY the description text from this table column. Return one description per line.",
-            "Material": "Extract ONLY the material/specification text from this table column. Return one entry per line."
+            "PartNumber": "Identify the cells in the given column screenshot. Extract valid text from this table column. Return whole cell content per line, nothing else. If a cell has multiple lines, combine them into one line.",
+            "Quantity": "Identify the cells in the given column screenshot. Extract valid text from this table column. Return whole cell content per line, nothing else. If a cell has multiple lines, combine them into one line.",
+            "Description": "Identify the cells in the given column screenshot. Extract valid text from this table column. Return whole cell content per line, nothing else. If a cell has multiple lines, combine them into one line.",
+            "Material": "Identify the cells in the given column screenshot. Extract valid text from this table column. Return whole cell content per line, nothing else. If a cell has multiple lines, combine them into one line."
         }
         
         prompt = prompts.get(column_name, prompts["Description"])
