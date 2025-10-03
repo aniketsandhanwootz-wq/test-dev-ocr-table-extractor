@@ -336,7 +336,7 @@ def gemini_extract_column(image_bytes, column_name):
         
         prompt = prompts.get(column_name, prompts["Description"])
         
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         response = model.generate_content([
             prompt + "\n\nIMPORTANT: Each table row should produce exactly ONE line in your output, even if the cell text spans multiple lines in the image.",
             {
