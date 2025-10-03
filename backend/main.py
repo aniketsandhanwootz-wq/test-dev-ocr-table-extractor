@@ -1311,48 +1311,7 @@ async def generate_missing_childpart_pdf(request: Request):
         print("❌ Error in generate_missing_childpart_pdf:")
         print(traceback.format_exc())
         return JSONResponse(status_code=500, content={"error": str(e)})
-"""    
-@app.post("/ocr-vision")
-async def ocr_vision_endpoint(request: Request):
-    """
-    Gemini Vision OCR endpoint for column extraction
-    """
-    try:
-        form = await request.form()
-        
-        if "image" not in form:
-            return JSONResponse(status_code=400, content={"error": "Missing image"})
-        if "column" not in form:
-            return JSONResponse(status_code=400, content={"error": "Missing column parameter"})
-        
-        image_file = form["image"]
-        column_name = form["column"]
-        
-        logger.info(f"🔍 Vision OCR request for column: {column_name}")
-        
-        # Read image bytes
-        image_bytes = await image_file.read()
-        
-        # Process with Gemini
-        def do_vision_ocr():
-            return openai_extract_column(image_bytes, column_name)
-        
-        result = await asyncio.to_thread(do_vision_ocr)
-        
-        return {
-            "mode": "vision",
-            "column": column_name,
-            "table": result
-        }
-        
-    except Exception as e:
-        import traceback
-        logger.error(f"❌ Vision OCR error: {e}\n{traceback.format_exc()}")
-        return JSONResponse(
-            status_code=500,
-            content={"error": f"Vision OCR failed: {str(e)}"}
-        )
-"""
+
 @app.post("/ocr-vision")
 async def ocr_vision_endpoint(request: Request):
     """
