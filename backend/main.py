@@ -369,67 +369,7 @@ def gemini_extract_column(image_bytes, column_name):
         logger.error(f"❌ Gemini extraction failed: {e}")
         raise
 '''
-"""
-def openai_extract_column(image_bytes, column_name):
-    """
-    Extract column using OpenAI Vision
-    """
-    try:
-        if not openai_client:
-            raise Exception("OpenAI API key not configured")
-        
-        # Encode to base64
-        image_b64 = base64.b64encode(image_bytes).decode('utf-8')     
-        # Column-specific prompts (same as Gemini)
-        prompts = {
-            "PartNumber": "Identify the cells in the given column screenshot. Extract valid text from this table column. Return whole cell content per line, nothing else. If a cell has multiple lines, combine them into one line.",
-            "Quantity": "Identify the cells in the given column screenshot. Extract valid text from this table column. Return whole cell content per line, nothing else. If a cell has multiple lines, combine them into one line.",
-            "Description": "Identify the cells in the given column screenshot. Extract valid text from this table column. Return whole cell content per line, nothing else. If a cell has multiple lines, combine them into one line.",
-            "Material": "Identify the cells in the given column screenshot. Extract valid text from this table column. Return whole cell content per line, nothing else. If a cell has multiple lines, combine them into one line."
-        }
 
-        prompt = prompts.get(column_name, prompts["Description"])
-        
-        response = openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt + "\n\nIMPORTANT: Each table row should produce exactly ONE line in your output."},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{image_b64}"
-                            }
-                        }
-                    ]
-                }
-            ],
-            max_tokens=500
-        )
-        
-        # Parse response
-        text = response.choices[0].message.content.strip()
-        # Remove markdown code blocks if present
-        if text.startswith('```') and text.endswith('```'):
-            text = text[3:-3].strip()
-            # Also handle language tags like ```text
-            if text.startswith('text\n'):
-                text = text[5:].strip()
-
-        lines = [line.strip() for line in text.split('\n') if line.strip()]
-        
-        # Return in PaddleOCR format
-        result = [{"text": line, "confidence": 0.95} for line in lines]
-        
-        logger.info(f"✅ OpenAI extracted {len(result)} items for {column_name}")
-        return result
-        
-    except Exception as e:
-        logger.error(f"❌ OpenAI extraction failed: {e}")
-        raise
-        """
 def openai_extract_column(image_bytes, column_name):
     """
     Extract column using OpenAI Vision with universal prompt
