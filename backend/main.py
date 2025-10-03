@@ -384,16 +384,24 @@ def openai_extract_column(image_bytes, column_name):
         # Universal prompt - works for all column types
         prompt = """Extract text from this table column image EXACTLY as shown.
 
-Rules:
-1. Return one line per table cell
-2. Each cell is independent - preserve exact text from each cell separately
-3. Do not modify, correct, or standardize values
-4. If a cell spans multiple lines, combine into ONE line with spaces
-5. Preserve all characters, numbers, symbols exactly as shown
-6. Do not skip empty cells - return empty line
-7. Maintain cell order from top to bottom
+CRITICAL: Look for visual cell boundaries (horizontal lines, borders, or large spacing between rows). Text on multiple lines WITHIN the same cell boundary should be combined into ONE output line.
 
-Extract only the visible text. Do not add explanations or formatting."""
+Rules:
+1. Identify cell boundaries by looking for horizontal dividing lines or significant gaps
+2. Return one line per table cell (not per text line)
+3. If text wraps across multiple lines within ONE cell, combine with spaces
+4. Each cell is independent - preserve exact text separately
+5. Do not modify, correct, or standardize values
+6. Preserve all characters, numbers, symbols exactly
+7. For empty cells, return empty line
+8. Maintain cell order from top to bottom
+
+Example: If a cell shows:
+  "LONG DESCRIPTION
+   TEXT CONTINUES"
+With no dividing line between them, output: "LONG DESCRIPTION TEXT CONTINUES"
+
+Extract only visible text. No explanations."""
         
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
