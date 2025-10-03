@@ -2483,7 +2483,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                 // 🔥 TRY GEMINI FIRST
                 let success = false;
                 try {
-                    console.log(`🤖 Attempting Gemini Vision for ${label}...`);
+                    console.log(`🤖 Attempting OpenAI Vision for ${label}...`);
                     const visionResp = await fetch("https://ocr-gemini-test.onrender.com/ocr-vision", {
                         method: "POST",
                         body: formData,
@@ -2491,17 +2491,17 @@ function isDuplicateChildpartSelection(value, rowIndex) {
 
                     if (visionResp.ok) {
                         const data = await visionResp.json();
-                        console.log(`✅ Gemini success for ${label}:`, data);
+                        console.log(`✅ OpenAI success for ${label}:`, data);
 
                         if (data.table && Array.isArray(data.table)) {
                             addColumn(data.table, internalColumn);
                             success = true;
                         }
                     } else {
-                        console.warn(`⚠️ Gemini failed (${visionResp.status}), falling back to PaddleOCR...`);
+                        console.warn(`⚠️ OpenAI failed (${visionResp.status}), falling back to PaddleOCR...`);
                     }
                 } catch (visionErr) {
-                    console.warn(`⚠️ Gemini error, falling back to PaddleOCR:`, visionErr);
+                    console.warn(`⚠️ OpenAI error, falling back to PaddleOCR:`, visionErr);
                 }
 
                 // 🔄 FALLBACK TO PADDLEOCR if Gemini failed
@@ -2522,7 +2522,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             addColumn(data.table, internalColumn);
                         }
                     } catch (ocrErr) {
-                        console.error(`❌ Both Gemini and PaddleOCR failed for ${label}:`, ocrErr);
+                        console.error(`❌ Both OpenAI and PaddleOCR failed for ${label}:`, ocrErr);
                     }
                 }
             }
