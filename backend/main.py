@@ -384,25 +384,29 @@ def openai_extract_column(image_bytes, column_name):
         # Universal prompt - works for all column types
         prompt = """Extract text from this table column image EXACTLY as shown.
 
-CRITICAL: Look for visual cell boundaries (horizontal lines, borders, or large spacing between rows). Text on multiple lines WITHIN the same cell boundary should be combined into ONE output line.
+PRIMARY RULE: Look for HORIZONTAL BLACK LINES or BORDERS that separate cells. Everything between two horizontal lines is ONE cell.
 
-Rules:
-1. Identify cell boundaries by looking for horizontal dividing lines or significant gaps
-2. Return one line per table cell (not per text line)
-3. If text wraps across multiple lines within ONE cell, combine with spaces
-4. Each cell is independent - preserve exact text separately
-5. Do not modify, correct, or standardize values
-6. Preserve all characters, numbers, symbols exactly
-7. For empty cells, return empty line
-8. Maintain cell order from top to bottom
+Critical Instructions:
+1. Cell boundaries are defined by horizontal dividing lines/borders - NOT by text line breaks
+2. If multiple text lines appear within the same bordered cell, combine them into ONE output line with spaces
+3. Return exactly one output line per bordered cell
+4. Each cell exists independently - do not look at or copy from neighboring cells
+5. Do not modify, standardize, or auto-complete any values
+6. Preserve exact characters, numbers, symbols as shown
+7. For empty bordered cells, return empty line
+8. Process cells in top-to-bottom order
 
-Example: If a cell shows:
-  "LONG DESCRIPTION
-   TEXT CONTINUES"
-With no dividing line between them, output: "LONG DESCRIPTION TEXT CONTINUES"
+Example from image:
+If you see a bordered cell containing:
+  "AISI 304 SECTIONS
+   AS NOTED"
+Output: "AISI 304 SECTIONS AS NOTED"
 
-Extract only visible text. No explanations."""
-        
+If you see a bordered cell containing:
+  "10939729A-021-FA02"
+Output: "10939729A-021-FA02"
+
+Focus on the BORDERS/LINES to identify where one cell ends and the next begins. Do not split multi-line text within the same cell boundary. Extract only what is visible, no explanations."""
         response = openai_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
