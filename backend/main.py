@@ -372,48 +372,36 @@ def gemini_extract_column(image_bytes, column_name):
 
 def openai_extract_column(image_bytes, column_name):
     """
-    Extract column using OpenAI Vision with universal prompt
+    Extract column using OpenAI GPT-4o Vision
     """
     try:
         if not openai_client:
             raise Exception("OpenAI API key not configured")
         
-        # Encode to base64
         image_b64 = base64.b64encode(image_bytes).decode('utf-8')
         
-        # Universal prompt - works for all column types
-        prompt = """Extract text from this table column image EXACTLY as shown.
-
-PRIMARY RULE: Look for HORIZONTAL BLACK LINES or BORDERS that separate cells. Everything between two horizontal lines is ONE cell.
-
-Critical Instructions:
-1. Cell boundaries are defined by horizontal dividing lines/borders - NOT by text line breaks
-2. If multiple text lines appear within the same bordered cell, combine them into ONE output line with spaces
-3. Return exactly one output line per bordered cell
-4. Each cell exists independently - do not look at or copy from neighboring cells
-5. Do not modify, standardize, or auto-complete any values
-6. Preserve exact characters, numbers, symbols as shown
-7. For empty bordered cells, return empty line
-8. Process cells in top-to-bottom order
-
-Example from image:
-If you see a bordered cell containing:
-  "AISI 304 SECTIONS
-   AS NOTED"
-Output: "AISI 304 SECTIONS AS NOTED"
-
-If you see a bordered cell containing:
-  "10939729A-021-FA02"
-Output: "10939729A-021-FA02"
-
-Focus on the BORDERS/LINES to identify where one cell ends and the next begins. Do not split multi-line text within the same cell boundary. Extract only what is visible, no explanations."""
         response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
+                {
+                    "role": "system",
+                    "content": "You are a specialized OCR extraction tool. Extract only visible text from images. Never provide explanations, commentary, or conversational responses. Output only the extracted data."
+                },
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": prompt},
+                        {
+                            "type": "text",
+                            "text": """Analyze this table column image and extract cell contents.
+
+Cell identification: A cell is the area between two horizontal border lines.
+Multi-line handling: If text wraps onto multiple lines within one cell, join with single space.
+Independence: Each cell value is independent. Never reference or copy from other cells.
+Format: Return one line per cell, top to bottom order.
+Empty cells: Return blank line.
+
+Output the cell values only, nothing else."""
+                        },
                         {
                             "type": "image_url",
                             "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}
@@ -425,26 +413,38 @@ Focus on the BORDERS/LINES to identify where one cell ends and the next begins. 
             temperature=0
         )
         
-        # Parse response
         text = response.choices[0].message.content.strip()
         
-        # Remove markdown code blocks if present
-        if text.startswith('```') and text.endswith('```'):
-            text = text[3:-3].strip()
-            # Also handle language tags like ```text
-            if text.startswith('text\n'):
-                text = text[5:].strip()
+        # Strip markdown formatting
+        if text.startswith('```'):
+            lines_split = text.split('\n')
+            text = '\n'.join(lines_split[1:-1]) if len(lines_split) > 2 else text
+            text = text.replace('```', '').strip()
         
-        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        # Detect conversational responses
+        lower_text = text.lower()
+        reject_phrases = [
+            "i cannot", "i can't", "sorry", "unable to",
+            "appears to", "seems to", "the image", "this is",
+            "how can i", "what would", "please provide"
+        ]
         
-        # Return in PaddleOCR format
+        if any(phrase in lower_text for phrase in reject_phrases):
+            logger.warning(f"GPT-4o returned conversational text: {text[:80]}")
+            raise Exception("Conversational response detected")
+        
+        lines = [line.strip() for line in text.split('\n')]
+        
+        if not lines:
+            raise Exception("Empty extraction")
+        
         result = [{"text": line, "confidence": 0.95} for line in lines]
         
-        logger.info(f"✅ OpenAI extracted {len(result)} items for {column_name}")
+        logger.info(f"GPT-4o extracted {len(result)} items")
         return result
         
     except Exception as e:
-        logger.error(f"❌ OpenAI extraction failed: {e}")
+        logger.error(f"GPT-4o extraction failed: {e}")
         raise
 # Working fine except multiline text extraction
 # def advanced_cells(img):
