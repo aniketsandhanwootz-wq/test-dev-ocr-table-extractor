@@ -403,6 +403,7 @@ Empty cells: If a bordered cell has no text at all, skip it (do not output blank
 
 Critical: A cell is defined by horizontal borders, NOT by vertical spacing. Large vertical gaps within one bordered area are still ONE cell.
 IMPORTANT: If consecutive cells contain identical or similar text, output each occurrence separately. Do NOT merge or deduplicate cells with same content. Each bordered cell must appear in output regardless of similarity to adjacent cells.
+Warning : Return in same order, don't change any order
 Output the cell values only, nothing else."""
                 },
                 {
