@@ -381,37 +381,40 @@ def openai_extract_column(image_bytes, column_name):
         image_b64 = base64.b64encode(image_bytes).decode('utf-8')
         
         response = openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
+    model="gpt-4o",
+    messages=[
+        {
+            "role": "system",
+            "content": "You are a specialized OCR extraction tool. Extract only visible text from images. Never provide explanations, commentary, or conversational responses. Output only the extracted data."
+        },
+        {
+            "role": "user",
+            "content": [
                 {
-                    "role": "system",
-                    "content": "You are a specialized OCR extraction tool. Extract only visible text from images. Never provide explanations, commentary, or conversational responses. Output only the extracted data."
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": """Analyze this table column image and extract cell contents.
+                    "type": "text",
+                    "text": """Analyze this table column image and extract cell contents.
 
-Cell identification: A cell is the area between two horizontal border lines.
+Cell identification: Count ONLY horizontal border lines to identify cells. Ignore vertical spacing/whitespace.
 Multi-line handling: If text wraps onto multiple lines within one cell, join with single space.
+Whitespace handling: Empty vertical space within bordered cells is NOT a separate cell - skip it completely.
 Independence: Each cell value is independent. Never reference or copy from other cells.
-Format: Return one line per cell, top to bottom order.
-Empty cells: Return blank line.
+Format: Return one line per cell with text, top to bottom order. Skip lines for cells with only whitespace.
+Empty cells: If a bordered cell has no text at all, skip it (do not output blank line).
+
+Critical: A cell is defined by horizontal borders, NOT by vertical spacing. Large vertical gaps within one bordered area are still ONE cell.
 
 Output the cell values only, nothing else."""
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}
-                        }
-                    ]
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}
                 }
-            ],
-            max_tokens=500,
-            temperature=0
-        )
+            ]
+        }
+    ],
+    max_tokens=500,
+    temperature=0
+)
         
         text = response.choices[0].message.content.strip()
         
