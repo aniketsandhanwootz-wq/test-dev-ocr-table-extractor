@@ -402,7 +402,7 @@ Format: Return one line per cell with text, top to bottom order. Skip lines for 
 Empty cells: If a bordered cell has no text at all, skip it (do not output blank line).
 
 Critical: A cell is defined by horizontal borders, NOT by vertical spacing. Large vertical gaps within one bordered area are still ONE cell.
-
+IMPORTANT: If consecutive cells contain identical or similar text, output each occurrence separately. Do NOT merge or deduplicate cells with same content. Each bordered cell must appear in output regardless of similarity to adjacent cells.
 Output the cell values only, nothing else."""
                 },
                 {
