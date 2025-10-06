@@ -399,7 +399,7 @@ Multi-line handling: If text wraps onto multiple lines within one cell, join wit
 Whitespace handling: Empty vertical space within bordered cells is NOT a separate cell - skip it completely.
 Independence: Each cell value is independent. Never reference or copy from other cells.
 Format: Return one line per cell with text, top to bottom order. Skip lines for cells with only whitespace.
-Empty cells: If a bordered cell has no text at all, in that case return an empty cell for that cell. 
+Empty cells: If a bordered cell has no text at all, skip it (do not output blank line).
 
 Critical: A cell is defined by horizontal borders, NOT by vertical spacing. Large vertical gaps within one bordered area are still ONE cell.
 IMPORTANT: If consecutive cells contain identical or similar text, output each occurrence separately. Do NOT merge or deduplicate cells with same content. Each bordered cell must appear in output regardless of similarity to adjacent cells.
