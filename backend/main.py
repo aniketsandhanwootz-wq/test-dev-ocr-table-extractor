@@ -96,6 +96,118 @@ def get_ocr_model():
         cls_model_dir=CLS_MODEL_DIR,
         use_gpu=False
     )
+# ====== OUTER-BORDER COMPLETION (no internal lines touched) ======
+def _bin(gray):
+    thr = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+    return 255 - thr  # text/lines = white
+
+def _find_internal_h(inv, x_left, x_right, min_len_frac=0.25):
+    roi = inv[:, x_left:x_right+1]
+    edges = cv2.Canny(roi, 30, 100, apertureSize=3)
+    ys = []
+    for thr, minFrac, maxGap in [(100, 0.50, 15), (70, min_len_frac, 25)]:
+        min_len = max(12, int((x_right - x_left + 1) * minFrac))
+        lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=thr,
+                                minLineLength=min_len, maxLineGap=maxGap)
+        if lines is None:
+            continue
+        for x1,y1,x2,y2 in lines[:,0]:
+            if abs(y2 - y1) <= 2:
+                ys.append(int((y1+y2)//2))
+    ys.sort()
+    merged = []
+    for y in ys:
+        if not merged or abs(y - merged[-1]) > 6:
+            merged.append(y)
+    return merged
+
+def _corridor_from_text(inv, Y, pad_lr=5):
+    H, W = inv.shape
+    if not Y: return pad_lr, W-1-pad_lr
+    lefts, rights = [], []
+    for y in Y:
+        y1 = max(0, y-12); y2 = min(H-1, y+12)
+        band = inv[y1:y2, :]
+        cols = (band > 0).sum(axis=0)
+        nz = np.where(cols > 0)[0]
+        if nz.size:
+            lefts.append(nz.min()); rights.append(nz.max())
+    if not lefts or not rights: return pad_lr, W-1-pad_lr
+    x_left  = int(np.percentile(lefts,  5)) - pad_lr
+    x_right = int(np.percentile(rights,95)) + pad_lr
+    return max(0, x_left), min(W-1, x_right)
+
+def _snap_edge(inv, x_left, x_right, up=True, pad=4):
+    H = inv.shape[0]
+    corr = inv[:, x_left:x_right+1]
+    ink = (corr > 0).sum(axis=1)
+    thr = max(3, int(0.02 * (x_right-x_left+1)))
+    nz = np.where(ink > thr)[0]
+    if nz.size == 0: return 0 if up else H-1
+    return max(0, nz[0]-pad) if up else min(H-1, nz[-1]+pad)
+
+def complete_outer_borders_only(img_bgr, line_thickness=2):
+    H, W = img_bgr.shape[:2]
+    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    inv  = _bin(gray)
+    Y0 = _find_internal_h(inv, 5, W-6, 0.25)
+    x_left, x_right = _corridor_from_text(inv, Y0, 5)
+    y_top = _snap_edge(inv, x_left, x_right, up=True,  pad=4)
+    y_bot = _snap_edge(inv, x_left, x_right, up=False, pad=4)
+    out = gray.copy()
+    cv2.line(out, (x_left, 0),     (x_left, H-1), 0, thickness=line_thickness)
+    cv2.line(out, (x_right, 0),    (x_right, H-1), 0, thickness=line_thickness)
+    cv2.line(out, (x_left, y_top), (x_right, y_top), 0, thickness=line_thickness)
+    cv2.line(out, (x_left, y_bot), (x_right, y_bot), 0, thickness=line_thickness)
+    return cv2.cvtColor(out, cv2.COLOR_GRAY2BGR)
+
+# ====== ROW DETECTOR (Hough) ======
+def detect_cell_borders(img_bgr):
+    H, W = img_bgr.shape[:2]
+    gray  = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    edges = cv2.Canny(gray, 50, 150, apertureSize=3)
+    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=100,
+                            minLineLength=int(W*0.25), maxLineGap=10)
+    ys = []
+    if lines is not None:
+        for x1,y1,x2,y2 in lines[:,0]:
+            if abs(y2-y1) < 5:
+                ys.append((y1+y2)//2)
+    ys = sorted(set(ys))
+    merged = []
+    for y in ys:
+        if not merged or abs(y - merged[-1]) > 10:
+            merged.append(y)
+    bands = []
+    for i in range(len(merged)-1):
+        y1, y2 = merged[i], merged[i+1]
+        if y2 - y1 > 15:
+            bands.append((y1, y2))
+    return bands
+
+# ====== SPACING / UPSCALE / SHARPEN (used only for Quantity) ======
+def add_vertical_spacing(img_bgr, cell_boundaries, spacing_px=25):
+    H, W = img_bgr.shape[:2]
+    new_h = H + len(cell_boundaries)*spacing_px
+    out = np.ones((new_h, W, 3), np.uint8) * 255
+    y = 0
+    new_bounds = []
+    for (y1,y2) in cell_boundaries:
+        h = y2-y1
+        out[y:y+h, :] = img_bgr[y1:y2, :]
+        new_bounds.append((y, y+h))
+        y += h + spacing_px
+    return out, new_bounds
+
+def upscale_image(img, scale_factor=4):
+    h, w = img.shape[:2]
+    return cv2.resize(img, (int(w*scale_factor), int(h*scale_factor)), interpolation=cv2.INTER_CUBIC)
+
+def sharpen_image(img_bgr, strength=1.5):
+    img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+    pil = Image.fromarray(img_rgb)
+    sharp = pil.filter(ImageFilter.UnsharpMask(radius=2, percent=int(strength*100), threshold=3))
+    return cv2.cvtColor(np.array(sharp), cv2.COLOR_RGB2BGR)
 
 # Process image with OCR
 def simple_cells(img_rgb):
