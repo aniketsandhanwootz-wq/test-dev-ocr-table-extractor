@@ -274,6 +274,22 @@ def docai_extract_column(img_bgr, column_name: str):
         lines = _docai_lines(img_done)
         return _map_to_bands(lines, bands, scale=1.0)
 
+def log_backend_choice(run_id: str, column: str, winner: str):
+    url = os.getenv("SHEET_LOG_WEBHOOK_URL")
+    if not url:
+        logger.info(f"[LOG] run={run_id} column={column} winner={winner} (no webhook set)")
+        return
+    payload = {
+        "run": run_id,
+        "column": column,
+        "google_doc_ai": 1 if winner == "docai" else 0,
+        "openai": 1 if winner == "openai" else 0,
+        "paddleocr": 1 if winner == "paddle" else 0,
+    }
+    try:
+        httpx.post(url, json=payload, timeout=5.0)
+    except Exception as e:
+        logger.warning(f"sheet log failed: {e}")
 # Process image with OCR
 def simple_cells(img_rgb):
     """
