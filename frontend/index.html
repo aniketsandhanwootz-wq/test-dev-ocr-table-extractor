@@ -976,7 +976,7 @@
 
         /* Low similarity warning for dropdown cells */
         .low-similarity-cell {
-            background-color: a(255, 193, 7, 0.3) !important;
+            background-color: rgba(255, 193, 7, 0.3) !important;
             /* Yellow warning background */
             border: 1px solid #ffc107 !important;
             position: relative;
@@ -1919,7 +1919,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                 dropdownMenu: false,
                 filters: true,
                 width: '100%',
-                heigth: '100%',
+                height: '100%',
                 autoColumnSize: true,
                 stretchH: 'all',
                 wordWrap: true,
@@ -2467,7 +2467,9 @@ function isDuplicateChildpartSelection(value, rowIndex) {
             };
 
             for (const label in fileStates) {
-                const internalColumn = columnKeyMap[label];
+                // const internalColumn = columnKeyMap[label];
+                const internalColumn = columnKeyMap[label] || label; // header uploads already give internal keys
+
 
                 if (!internalColumn) {
                     console.warn(`⚠️ No mapping found for upload label: ${label}`);
@@ -2568,7 +2570,6 @@ function isDuplicateChildpartSelection(value, rowIndex) {
         document.getElementById("submit-btn").addEventListener("click", () => {
             sendDataToBackend();
         });
-
 
         // Add this after your table initialization
         document.addEventListener('click', function (e) {
