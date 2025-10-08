@@ -209,6 +209,71 @@ def sharpen_image(img_bgr, strength=1.5):
     sharp = pil.filter(ImageFilter.UnsharpMask(radius=2, percent=int(strength*100), threshold=3))
     return cv2.cvtColor(np.array(sharp), cv2.COLOR_RGB2BGR)
 
+def _docai_lines(image_bgr):
+    """Run Google Document AI and return [{'text', 'y', 'confidence'}] in image coords."""
+    if not (DOC_PROJECT_ID and DOC_LOCATION and DOC_PROCESSOR):
+        logger.warning("DocAI env not set; skipping")
+        return []
+    ok, buf = cv2.imencode(".png", image_bgr)
+    if not ok:
+        return []
+    client = documentai.DocumentProcessorServiceClient()
+    name = client.processor_path(DOC_PROJECT_ID, DOC_LOCATION, DOC_PROCESSOR)
+    raw_document = documentai.RawDocument(content=buf.tobytes(), mime_type="image/png")
+    result = client.process_document(request=documentai.ProcessRequest(name=name, raw_document=raw_document))
+
+    H = image_bgr.shape[0]
+    out = []
+    for page in result.document.pages:
+        for line in getattr(page, "lines", []):
+            text = ""
+            for seg in line.layout.text_anchor.text_segments:
+                s = int(seg.start_index) if seg.start_index else 0
+                e = int(seg.end_index) if seg.end_index else 0
+                text += result.document.text[s:e]
+            if not text.strip():
+                continue
+            v = line.layout.bounding_poly.normalized_vertices
+            y = ((v[0].y + v[2].y)/2.0) * H
+            out.append({"text": text.strip(), "y": y, "confidence": float(line.layout.confidence or 0.9)})
+    return out
+
+def _map_to_bands(lines, bands, scale=1.0):
+    """Map DocAI lines to (y1,y2) bands. If the image was upscaled, pass scale (e.g., 4)."""
+    cells = []
+    for (y1, y2) in bands:
+        lo, hi = y1*scale, y2*scale
+        here = [l for l in lines if lo <= l["y"] <= hi]
+        if here:
+            here.sort(key=lambda x: x["y"])
+            txt = " ".join(l["text"] for l in here)
+            conf = min(l["confidence"] for l in here)
+            cells.append({"text": txt, "confidence": conf})
+        else:
+            cells.append({"text": "", "confidence": 0.0})
+    return cells
+
+def docai_extract_column(img_bgr, column_name: str):
+    """
+    For 'quantity': outer-borders → Hough → spacing+upscale+sharpen → DocAI → map.
+    For others:    outer-borders → Hough → DocAI (no spacing/upscale) → map.
+    """
+    img_done = complete_outer_borders_only(img_bgr)
+    bands = detect_cell_borders(img_done)
+    if not bands:
+        return []  # triggers fallback chain
+
+    if (column_name or "").lower() == "quantity":
+        spaced, spaced_bands = add_vertical_spacing(img_done, bands, spacing_px=25)
+        up = upscale_image(spaced, 4)
+        fin = sharpen_image(up, 1.5)
+        lines = _docai_lines(fin)
+        return _map_to_bands(lines, spaced_bands, scale=4.0)
+    else:
+        # other columns: no spacing/upscale
+        lines = _docai_lines(img_done)
+        return _map_to_bands(lines, bands, scale=1.0)
+
 # Process image with OCR
 def simple_cells(img_rgb):
     """
