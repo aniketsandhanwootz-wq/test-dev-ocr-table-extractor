@@ -71,6 +71,27 @@ DOC_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
 DOC_LOCATION   = os.getenv("GCP_LOCATION", "us")
 DOC_PROCESSOR  = os.getenv("DOC_PROCESSOR_ID")
 
+# ---- Google Sheets config (service account) ----
+SHEET_ID  = os.getenv("SHEET_ID")
+SHEET_TAB = os.getenv("SHEET_TAB", "Logs")
+_SHEETS_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+_sheets_service = None
+
+def _get_sheets_service():
+    """Create and cache a Sheets API client using the same SA file we wrote to /tmp."""
+    global _sheets_service
+    if _sheets_service is None:
+        cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        if not cred_path or not os.path.exists(cred_path):
+            logger.warning("Sheets: no GOOGLE_APPLICATION_CREDENTIALS file found")
+            return None
+        creds = service_account.Credentials.from_service_account_file(
+            cred_path, scopes=_SHEETS_SCOPES
+        )
+        # cache_discovery avoids filesystem writes on serverless
+        _sheets_service = build("sheets", "v4", credentials=creds, cache_discovery=False)
+    return _sheets_service
+
 #else:
 #    logger.warning("⚠️ GEMINI_API_KEY not found - vision OCR will be disabled")
 # Check and log model paths on startup
@@ -80,6 +101,7 @@ async def startup_event():
     logger.info(f"Detection model: {DET_MODEL_DIR} (exists: {os.path.exists(DET_MODEL_DIR)})")
     logger.info(f"Recognition model: {REC_MODEL_DIR} (exists: {os.path.exists(REC_MODEL_DIR)})")
     logger.info(f"Classification model: {CLS_MODEL_DIR} (exists: {os.path.exists(CLS_MODEL_DIR)})")
+    logger.info(f"Sheets configured: {bool(SHEET_ID)}; DocAI configured: {bool(DOC_PROCESSOR)}")
 
 # Code look for an “O” preceded by whitespace and followed by a digit and replaces it with “Ø”
 def fix_diameter(text: str) -> str:
@@ -278,21 +300,57 @@ def docai_extract_column(img_bgr, column_name: str):
         return _map_to_bands(lines, bands, scale=1.0)
 
 def log_backend_choice(run_id: str, column: str, winner: str):
-    url = os.getenv("SHEET_LOG_WEBHOOK_URL")
-    if not url:
-        logger.info(f"[LOG] run={run_id} column={column} winner={winner} (no webhook set)")
-        return
-    payload = {
-        "run": run_id,
-        "column": column,
-        "google_doc_ai": 1 if winner == "docai" else 0,
-        "openai": 1 if winner == "openai" else 0,
-        "paddleocr": 1 if winner == "paddle" else 0,
-    }
+    """Try to log to Google Sheets; if not configured, fall back to webhook; else just log."""
+    row = [
+        datetime.datetime.utcnow().isoformat(),
+        run_id,
+        column,
+        1 if winner == "docai" else 0,
+        1 if winner == "openai" else 0,
+        1 if winner == "paddle" else 0,
+    ]
+
+    # 1) Prefer Google Sheets API if SHEET_ID is set
     try:
-        httpx.post(url, json=payload, timeout=5.0)
+        if SHEET_ID:
+            svc = _get_sheets_service()
+            if svc:
+                body = {"values": [row]}
+                svc.spreadsheets().values().append(
+                    spreadsheetId=SHEET_ID,
+                    range=f"{SHEET_TAB}!A:F",
+                    valueInputOption="RAW",
+                    insertDataOption="INSERT_ROWS",
+                    body=body,
+                ).execute()
+                logger.info("[LOG] wrote row to Google Sheets")
+                return
     except Exception as e:
-        logger.warning(f"sheet log failed: {e}")
+        logger.warning(f"[LOG] Sheets write failed: {e}")
+
+    # 2) Optional fallback to webhook (keep your existing env if you like)
+    url = os.getenv("SHEET_LOG_WEBHOOK_URL")
+    if url:
+        try:
+            httpx.post(
+                url,
+                json={
+                    "run": run_id,
+                    "column": column,
+                    "google_doc_ai": row[3],
+                    "openai": row[4],
+                    "paddleocr": row[5],
+                },
+                timeout=5.0,
+            )
+            logger.info("[LOG] wrote row via webhook fallback")
+            return
+        except Exception as e:
+            logger.warning(f"[LOG] webhook failed: {e}")
+
+    # 3) Else: just log to stdout
+    logger.info(f"[LOG] (no sheets/webhook) run={run_id} column={column} winner={winner}")
+
 # Process image with OCR
 def simple_cells(img_rgb):
     """
