@@ -21,6 +21,9 @@ import base64
 from PIL import Image, ImageFilter  # used by sharpening step
 from typing import List, Tuple
 from google.cloud import documentai_v1 as documentai
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+import datetime
 
 
 # Configure logging
