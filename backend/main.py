@@ -920,10 +920,39 @@ async def ocr_endpoint(request: Request):
 
             # table mode: choose by column tag
             elif mode == "table":
+                run_id = form.get("run") or uuid.uuid4().hex[:8]
+            
+                # 1) Try Google Document AI (with special treatment for Quantity)
+                try:
+                    table_cells = docai_extract_column(img, column_id or "")
+                    if any(c.get("text") for c in table_cells):
+                        log_backend_choice(run_id, column_id or "", "docai")
+                        return {"mode": "table", "column": column_id, "table": table_cells, "engine": "docai"}
+                except Exception as e:
+                    logger.warning(f"DocAI failed: {e}")
+            
+                # 2) Fallback: OpenAI vision
+                try:
+                    result = openai_extract_column(image_bytes, column_id or "")
+                    if result and any(r.get("text") for r in result):
+                        log_backend_choice(run_id, column_id or "", "openai")
+                        return {"mode": "table", "column": column_id, "table": result, "engine": "openai"}
+                except Exception as e:
+                    logger.warning(f"OpenAI fallback failed: {e}")
+            
+                # 3) Last fallback: PaddleOCR
+                rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                paddle_cells = simple_cells(rgb)
+                log_backend_choice(run_id, column_id or "", "paddle")
+                return {"mode": "table", "column": column_id, "table": paddle_cells, "engine": "paddle"}
+
+            """ elif mode == "table":
+                Commenting to accomodate google doc ai
                 rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 table_cells = simple_cells(rgb)
                 logger.info(f"Using simple_cells for column: {column_id}")
-                return {"mode": mode, "table": table_cells}
+                return {"mode": mode, "table": table_cells} """
+                
                 # # quantity gets the old per‐line logic
                 # if column_id == "quantity":
                 #     rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
