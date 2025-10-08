@@ -1006,13 +1006,6 @@ async def ocr_endpoint(request: Request):
                 paddle_cells = simple_cells(rgb)
                 log_backend_choice(run_id, column_id or "", "paddle")
                 return {"mode": "table", "column": column_id, "table": paddle_cells, "engine": "paddle"}
-
-            """ elif mode == "table":
-                Commenting to accomodate google doc ai
-                rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                table_cells = simple_cells(rgb)
-                logger.info(f"Using simple_cells for column: {column_id}")
-                return {"mode": mode, "table": table_cells} """
                 
                 # # quantity gets the old per‐line logic
                 # if column_id == "quantity":
