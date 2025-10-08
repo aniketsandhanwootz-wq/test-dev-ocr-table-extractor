@@ -18,7 +18,9 @@ import cloudinary.uploader
 #import google.generativeai as genai
 from openai import OpenAI
 import base64
-
+from PIL import Image, ImageFilter  # used by sharpening step
+from typing import List, Tuple
+from google.cloud import documentai_v1 as documentai
 
 
 # Configure logging
@@ -53,6 +55,19 @@ CLS_MODEL_DIR = os.path.join(PADDLE_HOME, "whl/cls/ch_ppocr_mobile_v2.0_cls_infe
 #Open AI API Configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+
+# --- Google DocAI config (kept out of GitHub) ---
+if os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON"):
+    _sa_path = "/tmp/gcp_sa.json"
+    if not os.path.exists(_sa_path):
+        with open(_sa_path, "w") as f:
+            f.write(os.environ["GOOGLE_APPLICATION_CREDENTIALS_JSON"])
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = _sa_path
+
+DOC_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
+DOC_LOCATION   = os.getenv("GCP_LOCATION", "us")
+DOC_PROCESSOR  = os.getenv("DOC_PROCESSOR_ID")
+
 #else:
 #    logger.warning("⚠️ GEMINI_API_KEY not found - vision OCR will be disabled")
 # Check and log model paths on startup
