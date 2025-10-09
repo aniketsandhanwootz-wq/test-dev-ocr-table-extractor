@@ -1315,14 +1315,19 @@ function isDuplicateChildpartSelection(value, rowIndex) {
             rowID = urlParams.get("rowID");
             lastOcrBomItem = parseInt(urlParams.get("item") || "0"); 
             
+            console.log("🔍 URL Params Debug:");
+            console.log("  project:", project);
+            console.log("  partNumber:", partNumber);
+            console.log("  parentDrgNum:", parentDrgNum);
             console.log("  rowID:", rowID);
             console.log("  lastOcrBomItem:", lastOcrBomItem);
-
+        
             if (!project || !partNumber || !parentDrgNum || !rowID) {
+                console.error("❌ Missing required params!");
                 showNotification("Missing required query params: project/part/parentdrgnum/rowID", 'error');
-                // Do not return; always initialize table even if params are missing
             } else {
                 try {
+                    console.log("📡 Fetching child parts from backend...");
                     const resp = await fetch(
                         "https://ocr-gemini-test.onrender.com/fetch-drawings",
                         {
@@ -1331,17 +1336,44 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             body: JSON.stringify({ project, part: partNumber }),
                         }
                     );
+                    
+                    console.log("📡 Response status:", resp.status);
+                    
+                    if (!resp.ok) {
+                        throw new Error(`HTTP error! status: ${resp.status}`);
+                    }
+                    
                     const data = await resp.json();
+                    console.log("📡 Raw response data:", data);
+                    
+                    if (!data.rows || !Array.isArray(data.rows)) {
+                        console.error("❌ Invalid response format:", data);
+                        throw new Error("Invalid response format from backend");
+                    }
+                    
                     windowChildParts = data.rows.map((r) =>
                         decodeURIComponent(r.drawingNumber || "")
                     );
-                    console.log("✅ Decoded Part Numbers:", windowChildParts);
+                    
+                    console.log("✅ Child parts loaded successfully!");
+                    console.log("✅ Total child parts:", windowChildParts.length);
+                    console.log("✅ First 5 parts:", windowChildParts.slice(0, 5));
+                    
+                    if (windowChildParts.length === 0) {
+                        console.warn("⚠️ WARNING: No child parts returned from backend!");
+                        showNotification("No child parts found for this drawing", 'warning');
+                    }
+                    
                 } catch (err) {
-                    console.error("Error fetching drawing data:", err);
-                    windowChildParts = []; // Fallback to empty array
+                    console.error("❌ CRITICAL ERROR fetching drawing data:", err);
+                    console.error("❌ Error details:", err.message);
+                    windowChildParts = [];
+                    showNotification(`Failed to load child parts: ${err.message}`, 'error');
                 }
             }
-            // Always initialize Handsontable, even if fetch fails or params are missing
+            
+            // Always initialize Handsontable
+            console.log("🎨 Initializing Handsontable...");
             initializeHandsontable();
         });
 
