@@ -1122,7 +1122,7 @@
 
                     <!-- Buttons container - always right (using span) -->
                     <span class="buttons-container">
-                        <button id="extract-btn">Extract</button>
+                        <button id="append-mode-btn" class="append-mode-off">Append: OFF</button>
                         <button id="submit-btn">Submit</button>
                     </span>
                 </div>
@@ -1239,6 +1239,7 @@ let hot;
 let windowChildParts = []; // expose on window for debugging
 let _cutBackup = [];
 let hasWarningNotificationShown = false;
+let isAppendMode = false; // Track append mode state
 let lastOcrBomItem = 0;
 let rowID = null;
 
@@ -2258,12 +2259,13 @@ function isDuplicateChildpartSelection(value, rowIndex) {
         // addColumn: used by OCR processing to inject a new column's OCR data
         // ─────────────────────────────────────────────────────────────────────
         function addColumn(newColumnData, label) {
-            console.log(`🔧 addColumn called with label: "${label}"`);
+            console.log(`🔧 addColumn called with label: "${label}", Append Mode: ${isAppendMode}`);
+            
             /* --------------------------------------------------------------------
-               If the user re‑uploads the PartNumber column we must clear any
-               previous auto‑matching results so they don’t linger and confuse.
+               If the user re-uploads the PartNumber column we must clear any
+               previous auto-matching results so they don't linger and confuse.
             -------------------------------------------------------------------- */
-            if (label === 'PartNumber') {
+            if (label === 'PartNumber' && !isAppendMode) {
                 spreadsheetData.forEach(r => {
                     r['Matched Childpart'] = '';
                     r['Type'] = '';
@@ -2273,70 +2275,105 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                 });
             }
             console.log(`📊 Data received:`, newColumnData);
-
-            // Now update spreadsheetData for this column without reordering others
+        
+            // ✅ NEW: Determine starting row index
+            let startRow = 0;
+            
+            if (isAppendMode) {
+                // Find last non-empty row for this column
+                for (let i = spreadsheetData.length - 1; i >= 0; i--) {
+                    const cellData = spreadsheetData[i]?.[label];
+                    if (cellData && cellData.text && cellData.text.trim() !== "") {
+                        startRow = i + 1; // Start after last filled row
+                        break;
+                    }
+                }
+                console.log(`📌 Append mode: Starting at row ${startRow}`);
+            } else {
+                console.log(`🔄 Replace mode: Starting at row 0`);
+                // Clear existing data for this column only
+                spreadsheetData.forEach(row => {
+                    if (row[label]) {
+                        row[label] = { text: "", confidence: 0, ocr: false };
+                    }
+                });
+            }
+        
+            // Now update spreadsheetData for this column
             for (let i = 0; i < newColumnData.length; i++) {
+                const targetRow = startRow + i;
                 const text = newColumnData[i]?.text || "";
                 const confidence = newColumnData[i]?.confidence || 0;
-
+        
                 // Ensure row exists
-                if (!spreadsheetData[i]) {
-                    spreadsheetData[i] = {};
+                while (spreadsheetData.length <= targetRow) {
+                    spreadsheetData.push({
+                        "PartNumber": { text: "", confidence: 0 },
+                        "Type": "",
+                        "Matched Childpart": "",
+                        Quantity: { text: "", confidence: 0 },
+                        Description: { text: "", confidence: 0 },
+                        Material: { text: "", confidence: 0 },
+                    });
                 }
-
+        
                 // Store OCR data
-                spreadsheetData[i][label] = { text, confidence, ocr: true };
-                console.log(`📝 Row ${i}: Set ${label} = "${text}" (confidence: ${confidence})`);
-
+                spreadsheetData[targetRow][label] = { text, confidence, ocr: true };
+                console.log(`📝 Row ${targetRow}: Set ${label} = "${text}" (confidence: ${confidence})`);
+        
                 // CRITICAL: PartNumber matching logic
                 if (label === "PartNumber" && text.trim() !== "") {
-                    console.log(`🔍 Processing PartNumber matching for row ${i}: "${text}"`);
+                    console.log(`🔎 Processing PartNumber matching for row ${targetRow}: "${text}"`);
                     console.log(`🎯 Available drawings:`, windowChildParts);
-
+        
                     if (windowChildParts && windowChildParts.length > 0) {
                         const best = findBestSequentialMatch(text, windowChildParts);
                         console.log(`🎖️ Best match result:`, best);
-
+        
                         const matchText = best.bestMatch.rating > 0.85 ? best.bestMatch.target : "";
                         console.log(`✨ Match selected (rating ${best.bestMatch.rating}): "${matchText}"`);
-
+        
                         // Only auto-populate if not manually set
-                        const currentMatch = spreadsheetData[i]["Matched Childpart"];
+                        const currentMatch = spreadsheetData[targetRow]["Matched Childpart"];
                         if (!currentMatch || currentMatch === "") {
                             if (matchText) {
                                 // ✅ GOOD MATCH: Child Part
-                                spreadsheetData[i]["Matched Childpart"] = matchText;
-                                spreadsheetData[i]["Type"] = "Child Part";
+                                spreadsheetData[targetRow]["Matched Childpart"] = matchText;
+                                spreadsheetData[targetRow]["Type"] = "Child Part";
                                 console.log(`✅ Auto-populated Matched Childpart: "${matchText}"`);
                             } else {
                                 // ❌ NO MATCH: Potential BO with warning
-                                spreadsheetData[i]["Matched Childpart"] = text; // Use original PartNumber text
-                                spreadsheetData[i]["Type"] = "";
-                                spreadsheetData[i]["_missingDrawing"] = true; // Flag for warning icon
+                                spreadsheetData[targetRow]["Matched Childpart"] = text;
+                                spreadsheetData[targetRow]["Type"] = "";
+                                spreadsheetData[targetRow]["_missingDrawing"] = true;
                                 console.log(`❌ No matching drawing found - missing drawing error: "${text}"`);
                             }
                         } else {
-                            console.log(`⏭️ Skipped auto-population - already set to: "${currentMatch}"`);
+                            console.log(`⭕ Skipped auto-population - already set to: "${currentMatch}"`);
                         }
-
+        
                         // Store similarity score for reference
-                        spreadsheetData[i]["_similarityScore"] = best.bestMatch.rating;
+                        spreadsheetData[targetRow]["_similarityScore"] = best.bestMatch.rating;
                     } else {
                         console.warn("⚠️ No drawing numbers available for matching");
                     }
                 }
             }
-
-            // Instead of always calling renderSpreadsheet, update data if hot exists
+        
+            // ✅ CRITICAL FIX: Force immediate render to avoid "click to show" bug
             if (hot) {
                 hot.loadData(spreadsheetData);
+                // Force render to ensure all rows are visible immediately
+                setTimeout(() => {
+                    hot.render();
+                    console.log("✅ Forced render after data load");
+                }, 50);
             } else {
                 renderSpreadsheet();
             }
-
+        
             refreshNotifications(); // ← Check for warnings after OCR processing
         }
-
         // ─────────────────────────────────────────────────────────────────────
         // OCR Uploads: Multiple zones, event delegation, state per column
         // ─────────────────────────────────────────────────────────────────────
