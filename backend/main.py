@@ -122,23 +122,37 @@ def get_ocr_model():
         use_gpu=False
     )
 # ====== OUTER-BORDER COMPLETION (no internal lines touched) ======
-def _bin(gray):
+# ====== OUTER-BORDER COMPLETION (Advanced v2) ======
+def _binarize(gray):
+    """Convert grayscale to binary (text/lines = white)"""
     thr = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-    return 255 - thr  # text/lines = white
+    return 255 - thr
 
-def _find_internal_h(inv, x_left, x_right, min_len_frac=0.25):
+def _find_internal_horizontals(inv, x_left, x_right, min_len_frac=0.35):
+    """
+    Detect internal horizontal lines within corridor using Hough transform.
+    Uses two-pass approach: strict then relaxed detection.
+    """
+    H, W = inv.shape
     roi = inv[:, x_left:x_right+1]
     edges = cv2.Canny(roi, 30, 100, apertureSize=3)
+
     ys = []
+    # Two-pass detection: strict then relaxed
     for thr, minFrac, maxGap in [(100, 0.50, 15), (70, min_len_frac, 25)]:
         min_len = max(12, int((x_right - x_left + 1) * minFrac))
         lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=thr,
                                 minLineLength=min_len, maxLineGap=maxGap)
         if lines is None:
             continue
-        for x1,y1,x2,y2 in lines[:,0]:
-            if abs(y2 - y1) <= 2:
-                ys.append(int((y1+y2)//2))
+        for x1, y1, x2, y2 in lines[:, 0]:
+            if abs(y2 - y1) <= 2:  # Horizontal line
+                ys.append(int((y1 + y2) // 2))
+    
+    if not ys:
+        return []
+    
+    # Merge nearby lines
     ys.sort()
     merged = []
     for y in ys:
@@ -146,44 +160,146 @@ def _find_internal_h(inv, x_left, x_right, min_len_frac=0.25):
             merged.append(y)
     return merged
 
-def _corridor_from_text(inv, Y, pad_lr=5):
+def _estimate_corridor_from_text(inv, Y, pad_lr=5):
+    """
+    Estimate left/right corridor boundaries using percentile of text distribution.
+    More robust than simple min/max approach.
+    """
     H, W = inv.shape
-    if not Y: return pad_lr, W-1-pad_lr
+    if not Y:
+        return pad_lr, W - 1 - pad_lr
+    
     lefts, rights = [], []
     for y in Y:
-        y1 = max(0, y-12); y2 = min(H-1, y+12)
+        y1 = max(0, y - 12)
+        y2 = min(H - 1, y + 12)
         band = inv[y1:y2, :]
         cols = (band > 0).sum(axis=0)
         nz = np.where(cols > 0)[0]
         if nz.size:
-            lefts.append(nz.min()); rights.append(nz.max())
-    if not lefts or not rights: return pad_lr, W-1-pad_lr
+            lefts.append(nz.min())
+            rights.append(nz.max())
+    
+    if not lefts or not rights:
+        return pad_lr, W - 1 - pad_lr
+    
+    # Use 5th/95th percentile instead of min/max for robustness
     x_left  = int(np.percentile(lefts,  5)) - pad_lr
-    x_right = int(np.percentile(rights,95)) + pad_lr
-    return max(0, x_left), min(W-1, x_right)
+    x_right = int(np.percentile(rights, 95)) + pad_lr
+    return max(0, x_left), min(W - 1, x_right)
 
-def _snap_edge(inv, x_left, x_right, up=True, pad=4):
+def _median_row_gap(Y):
+    """Calculate median gap between consecutive horizontal lines"""
+    if len(Y) < 2:
+        return None
+    gaps = np.diff(sorted(Y))
+    return float(np.median(gaps))
+
+def _snap_to_text_edge(inv, x_left, x_right, search='up', pad=4):
+    """
+    Find y-coordinate just outside first/last ink row within corridor.
+    
+    Args:
+        inv: Binary inverted image
+        x_left, x_right: Corridor boundaries
+        search: 'up' for top edge, 'down' for bottom edge
+        pad: Extra padding pixels
+    """
     H = inv.shape[0]
     corr = inv[:, x_left:x_right+1]
     ink = (corr > 0).sum(axis=1)
-    thr = max(3, int(0.02 * (x_right-x_left+1)))
+    
+    # Threshold: require ~2% of corridor width to have ink
+    thr = max(3, int(0.02 * (x_right - x_left + 1)))
     nz = np.where(ink > thr)[0]
-    if nz.size == 0: return 0 if up else H-1
-    return max(0, nz[0]-pad) if up else min(H-1, nz[-1]+pad)
+    
+    if nz.size == 0:
+        return 0 if search == 'up' else H - 1
+    
+    if search == 'up':
+        return max(0, nz[0] - pad)
+    else:
+        return min(H - 1, nz[-1] + pad)
 
-def complete_outer_borders_only(img_bgr, line_thickness=2):
+def _band_coverage(inv, x_left, x_right, y1, y2):
+    """
+    Calculate ink coverage ratio in a band.
+    Used to validate that new borders contain actual content.
+    """
+    if y2 <= y1:
+        return 0.0
+    band = inv[y1:y2, x_left:x_right+1]
+    total_pixels = band.size
+    ink_pixels = (band > 0).sum()
+    return float(ink_pixels) / float(total_pixels + 1e-6)
+
+def complete_outer_borders_only(img_bgr,
+                                pad_lr=5,
+                                coverage_min=0.012,
+                                line_thickness=2):
+    """
+    Advanced outer border completion with smart corridor detection.
+    
+    Features:
+    - Percentile-based corridor estimation (robust to outliers)
+    - Median row gap calculation for smart border placement
+    - Coverage validation to ensure borders contain actual content
+    - Dynamic top/bottom snapping based on detected row gaps
+    
+    Args:
+        img_bgr: Input BGR image
+        pad_lr: Left/right padding for corridor
+        coverage_min: Minimum ink coverage to validate new bands
+        line_thickness: Thickness of drawn borders
+    
+    Returns:
+        BGR image with completed outer borders only
+    """
     H, W = img_bgr.shape[:2]
     gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-    inv  = _bin(gray)
-    Y0 = _find_internal_h(inv, 5, W-6, 0.25)
-    x_left, x_right = _corridor_from_text(inv, Y0, 5)
-    y_top = _snap_edge(inv, x_left, x_right, up=True,  pad=4)
-    y_bot = _snap_edge(inv, x_left, x_right, up=False, pad=4)
+    inv = _binarize(gray)
+
+    # Step 1: Initial corridor estimate
+    xL0, xR0 = pad_lr, W - 1 - pad_lr
+    Y0 = _find_internal_horizontals(inv, xL0, xR0, min_len_frac=0.25)
+    
+    # Step 2: Refined corridor based on text distribution
+    x_left, x_right = _estimate_corridor_from_text(inv, Y0, pad_lr=pad_lr)
+
+    # Step 3: Detect internal horizontals for statistics
+    Y = _find_internal_horizontals(inv, x_left, x_right, min_len_frac=0.25)
+    d_med = _median_row_gap(Y)
+
+    # Step 4: Initial top/bottom from text edges
+    y_top = _snap_to_text_edge(inv, x_left, x_right, search='up',   pad=4)
+    y_bot = _snap_to_text_edge(inv, x_left, x_right, search='down', pad=4)
+    
+    # Step 5: Adjust using median gap if available
+    if d_med is not None and len(Y) >= 2:
+        y_top = min(y_top, max(0,    int(Y[0]  - 0.8 * d_med)))
+        y_bot = max(y_bot, min(H-1,  int(Y[-1] + 0.8 * d_med)))
+
+    # Step 6: Validate new bands contain actual content
+    if Y:
+        cov_top = _band_coverage(inv, x_left, x_right, 
+                                min(y_top, Y[0]), max(y_top, Y[0]))
+        if cov_top < coverage_min:
+            # Fallback: place border closer to first internal line
+            y_top = max(0, int(Y[0] - max(6, (d_med or 20) * 0.4)))
+        
+        cov_bot = _band_coverage(inv, x_left, x_right,
+                                min(y_bot, Y[-1]), max(y_bot, Y[-1]))
+        if cov_bot < coverage_min:
+            # Fallback: place border closer to last internal line
+            y_bot = min(H-1, int(Y[-1] + max(6, (d_med or 20) * 0.4)))
+
+    # Step 7: Draw only the four outer borders
     out = gray.copy()
-    cv2.line(out, (x_left, 0),     (x_left, H-1), 0, thickness=line_thickness)
-    cv2.line(out, (x_right, 0),    (x_right, H-1), 0, thickness=line_thickness)
-    cv2.line(out, (x_left, y_top), (x_right, y_top), 0, thickness=line_thickness)
-    cv2.line(out, (x_left, y_bot), (x_right, y_bot), 0, thickness=line_thickness)
+    cv2.line(out, (x_left, 0),        (x_left, H-1),      0, thickness=line_thickness)
+    cv2.line(out, (x_right, 0),       (x_right, H-1),     0, thickness=line_thickness)
+    cv2.line(out, (x_left, y_top),    (x_right, y_top),   0, thickness=line_thickness)
+    cv2.line(out, (x_left, y_bot),    (x_right, y_bot),   0, thickness=line_thickness)
+    
     return cv2.cvtColor(out, cv2.COLOR_GRAY2BGR)
 
 # ====== ROW DETECTOR (Hough) ======
