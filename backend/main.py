@@ -351,7 +351,7 @@ def sharpen_image(img_bgr, strength=1.5):
     return cv2.cvtColor(np.array(sharp), cv2.COLOR_RGB2BGR)
 
 def _docai_lines(image_bgr):
-    """Run Google Document AI and return [{'text', 'y', 'confidence'}] in image coords."""
+    """Run Google Document AI and return [{'text', 'x', 'y', 'confidence'}] in image coords."""
     if not (DOC_PROJECT_ID and DOC_LOCATION and DOC_PROCESSOR):
         logger.warning("DocAI env not set; skipping")
         return []
@@ -363,7 +363,7 @@ def _docai_lines(image_bgr):
     raw_document = documentai.RawDocument(content=buf.tobytes(), mime_type="image/png")
     result = client.process_document(request=documentai.ProcessRequest(name=name, raw_document=raw_document))
 
-    H = image_bgr.shape[0]
+    H, W = image_bgr.shape[:2]  # ← ADD WIDTH
     out = []
     for page in result.document.pages:
         for line in getattr(page, "lines", []):
@@ -375,8 +375,11 @@ def _docai_lines(image_bgr):
             if not text.strip():
                 continue
             v = line.layout.bounding_poly.normalized_vertices
+            x = ((v[0].x + v[2].x)/2.0) * W  # ← ADD X COORDINATE
             y = ((v[0].y + v[2].y)/2.0) * H
-            out.append({"text": text.strip(), "y": y, "confidence": float(line.layout.confidence or 0.9)})
+            # ← ADD PHI SYMBOL FIX HERE
+            cleaned_text = fix_diameter(text.strip())
+            out.append({"text": cleaned_text, "x": x, "y": y, "confidence": float(line.layout.confidence or 0.9)})
     return out
 
 def _map_to_bands(lines, bands, scale=1.0):
@@ -386,7 +389,8 @@ def _map_to_bands(lines, bands, scale=1.0):
         lo, hi = y1*scale, y2*scale
         here = [l for l in lines if lo <= l["y"] <= hi]
         if here:
-            here.sort(key=lambda x: x["y"])
+            # ← SORT BY Y FIRST (top to bottom), THEN X (left to right)
+            here.sort(key=lambda x: (x["y"], x["x"]))
             txt = " ".join(l["text"] for l in here)
             conf = min(l["confidence"] for l in here)
             cells.append({"text": txt, "confidence": conf})
