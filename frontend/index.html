@@ -2839,12 +2839,12 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                 console.log(`📢 Notification shown: ${highestPriorityNotification.message} (Priority ${highestPriorityNotification.priority})`);
             } else {
                 console.log(`✅ No errors found - notifications cleared`);
-                // Optionally hide notification if no errors found
+                // Only hide notification if no errors found AND not showing success
                 const area = document.getElementById('notification-area');
-                    if (area && area.classList.contains('notification-success')) {
-                      return; // let showNotification's own success timer hide it
-                    }
-                    hideNotification();
+                if (area && area.classList.contains('notification-success')) {
+                    return; // let showNotification's own success timer hide it
+                }
+                hideNotification();
             }
         }
 
@@ -3118,13 +3118,13 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                 btn.classList.add("append-mode-on");
                 btn.textContent = "Append: ON";
                 console.log("✅ Append mode: ENABLED");
-                showNotification("Append Mode ON: New data will be added below existing rows", 'success', 3000);
+                showNotification("Append Mode ON: New data will be added below existing rows", 'success', 1000);
             } else {
                 btn.classList.remove("append-mode-on");
                 btn.classList.add("append-mode-off");
                 btn.textContent = "Append: OFF";
                 console.log("❌ Append mode: DISABLED");
-                showNotification("Append Mode OFF: New data will replace existing data", 'success', 3000);
+                showNotification("Append Mode OFF: New data will replace existing data", 'success', 1000);
             }
         });
         document.addEventListener("DOMContentLoaded", function () {
