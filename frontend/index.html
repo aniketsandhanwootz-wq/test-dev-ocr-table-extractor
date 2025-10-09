@@ -2455,80 +2455,59 @@ function isDuplicateChildpartSelection(value, rowIndex) {
             const originalText = processBtn.textContent;
             processBtn.disabled = true;
             processBtn.textContent = "Processing...";
-
-            console.log("🚀 Starting OCR processing...");
-            console.log("📁 Files to process:", Object.keys(fileStates));
-
+        
+            console.log("ðŸš€ Starting OCR processing...");
+            console.log("ðŸ" Files to process:", Object.keys(fileStates));
+        
             const columnKeyMap = {
                 "Part Number": "PartNumber",
                 "Quantity": "Quantity",
                 "Description": "Description",
                 "Material": "Material",
             };
-
+        
             for (const label in fileStates) {
-                // const internalColumn = columnKeyMap[label];
-                const internalColumn = columnKeyMap[label] || label; // header uploads already give internal keys
-
-
+                const internalColumn = columnKeyMap[label] || label;
+        
                 if (!internalColumn) {
-                    console.warn(`⚠️ No mapping found for upload label: ${label}`);
+                    console.warn(`âš ï¸ No mapping found for upload label: ${label}`);
                     continue;
                 }
-
-                console.log(`📄 Processing ${label} → ${internalColumn}`);
-
+        
+                console.log(`ðŸ"„ Processing ${label} â†' ${internalColumn}`);
+        
                 const formData = new FormData();
                 formData.append("image", fileStates[label]);
                 formData.append("column", internalColumn);
-
-                // 🔥 TRY GEMINI FIRST
-                let success = false;
+                formData.append("mode", "table"); // ← CRITICAL: Backend expects this
+        
+                // ðŸš€ USE MAIN ENDPOINT (DocAI → OpenAI → Paddle chain)
                 try {
-                    console.log(`🤖 Attempting OpenAI Vision for ${label}...`);
-                    const visionResp = await fetch("https://ocr-gemini-test.onrender.com/ocr-vision", {
+                    console.log(`ðŸš€ Calling main endpoint for ${label}...`);
+                    
+                    const response = await fetch("https://ocr-gemini-test.onrender.com/", {
                         method: "POST",
                         body: formData,
                     });
-
-                    if (visionResp.ok) {
-                        const data = await visionResp.json();
-                        console.log(`✅ OpenAI success for ${label}:`, data);
-
+        
+                    if (response.ok) {
+                        const data = await response.json();
+                        const engine = data.engine || "unknown";
+                        console.log(`âœ… ${engine.toUpperCase()} extracted data for ${label}:`, data);
+        
                         if (data.table && Array.isArray(data.table)) {
                             addColumn(data.table, internalColumn);
-                            success = true;
+                        } else {
+                            console.error(`âŒ Invalid response format for ${label}`);
                         }
                     } else {
-                        console.warn(`⚠️ OpenAI failed (${visionResp.status}), falling back to PaddleOCR...`);
+                        console.error(`âŒ Backend returned error ${response.status} for ${label}`);
                     }
-                } catch (visionErr) {
-                    console.warn(`⚠️ OpenAI error, falling back to PaddleOCR:`, visionErr);
-                }
-
-                // 🔄 FALLBACK TO PADDLEOCR if Gemini failed
-                if (!success) {
-                    console.log(`🔄 Using PaddleOCR fallback for ${label}...`);
-                    formData.append("mode", "table");
-                    
-                    try {
-                        const ocrResp = await fetch("https://ocr-gemini-test.onrender.com", {
-                            method: "POST",
-                            body: formData,
-                        });
-                        const data = await ocrResp.json();
-
-                        console.log(`✅ PaddleOCR response for ${label}:`, data);
-
-                        if (data.table && Array.isArray(data.table)) {
-                            addColumn(data.table, internalColumn);
-                        }
-                    } catch (ocrErr) {
-                        console.error(`❌ Both OpenAI and PaddleOCR failed for ${label}:`, ocrErr);
-                    }
+                } catch (error) {
+                    console.error(`âŒ Request failed for ${label}:`, error);
                 }
             }
-
+        
             // Clear preview and fileStates after processing
             uploads.forEach(area => {
                 area.querySelector(".file-status").style.display = "none";
@@ -2536,16 +2515,16 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                 area.querySelector("input").value = "";
                 area.classList.remove("has-file");
             });
-
+        
             Object.keys(fileStates).forEach(k => delete fileStates[k]);
             processBtn.disabled = true;
             processBtn.textContent = originalText;
-
+        
             const panel = document.getElementById("ocr-panel");
             panel.classList.remove("open");
-
-            console.log("🏁 OCR processing completed");
-        });
+        
+            console.log("✅ OCR processing completed");
+        });        
         // ─────────────────────────────────────────────────────────────────────
         // Show/Hide help popover
         // ─────────────────────────────────────────────────────────────────────
