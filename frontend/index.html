@@ -247,6 +247,32 @@
             color: #fff;
             font-weight: 700;
         }
+        /* Append Mode Toggle Button */
+        #append-mode-btn {
+            background-color: #2b2a2a;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        #append-mode-btn.append-mode-on {
+            background-color: #22c55e;
+            color: #000;
+            font-weight: 600;
+        }
+        
+        #append-mode-btn.append-mode-off {
+            background-color: #2b2a2a;
+            color: #fff;
+        }
+        
+        #append-mode-btn:hover {
+            opacity: 0.85;
+        }
 
         /* ---------- --- Upload area as Heading Row--- ------  */
         /* Just override for header-row */
@@ -2558,7 +2584,15 @@ function isDuplicateChildpartSelection(value, rowIndex) {
         
             const panel = document.getElementById("ocr-panel");
             panel.classList.remove("open");
-        
+            
+            // ✅ Force final render to ensure all new data is visible
+            if (hot) {
+                setTimeout(() => {
+                    hot.render();
+                    console.log("✅ Final render after all OCR processing");
+                }, 100);
+            }
+            
             console.log("OCR processing completed");
         });
         // ─────────────────────────────────────────────────────────────────────
@@ -3042,6 +3076,25 @@ function isDuplicateChildpartSelection(value, rowIndex) {
 
         // --- Ensure OCR upload header areas use correct data-column attributes (internal keys) ---
         // This runs once on DOMContentLoaded to fix any "data-column" attributes for header upload areas
+        // ========== APPEND MODE TOGGLE ==========
+        document.getElementById("append-mode-btn").addEventListener("click", () => {
+            const btn = document.getElementById("append-mode-btn");
+            isAppendMode = !isAppendMode;
+            
+            if (isAppendMode) {
+                btn.classList.remove("append-mode-off");
+                btn.classList.add("append-mode-on");
+                btn.textContent = "Append: ON";
+                console.log("✅ Append mode: ENABLED");
+                showNotification("Append Mode ON: New data will be added below existing rows", 'success', 3000);
+            } else {
+                btn.classList.remove("append-mode-on");
+                btn.classList.add("append-mode-off");
+                btn.textContent = "Append: OFF";
+                console.log("❌ Append mode: DISABLED");
+                showNotification("Append Mode OFF: New data will replace existing data", 'success', 3000);
+            }
+        });
         document.addEventListener("DOMContentLoaded", function () {
             // Map display titles to internal keys
             const columnKeyMap = {
