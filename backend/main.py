@@ -107,7 +107,7 @@ async def startup_event():
 def fix_diameter(text: str) -> str:
     # look for an “O” preceded by whitespace and followed by a digit,
     # and replace it with “Ø”
-    return re.sub(r'(?<=\s)O(?=\d)', 'Ø', text)
+    return re.sub(r'(?<=\s)[O0](?=\d)', 'Ø', text)
 
 # Initialize OCR model
 def get_ocr_model():
