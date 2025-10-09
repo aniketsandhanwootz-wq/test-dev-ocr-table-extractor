@@ -400,22 +400,37 @@ def _map_to_bands(lines, bands, scale=1.0):
 
 def docai_extract_column(img_bgr, column_name: str):
     """
-    For 'quantity': outer-borders → Hough → spacing+upscale+sharpen → DocAI → map.
-    For others:    outer-borders → Hough → DocAI (no spacing/upscale) → map.
+    Column-specific processing:
+    - PartNumber: Raw DocAI only (no borders, no hough)
+    - Quantity: Borders → Hough → Spacing+Upscale+Sharpen → DocAI
+    - Others (Desc/Material): Borders → Hough → DocAI
     """
+    column_lower = (column_name or "").lower()
+    
+    # PartNumber: NO preprocessing, just raw DocAI
+    if column_lower == "partnumber":
+        lines = _docai_lines(img_bgr)  # ← Direct DocAI on raw image
+        if not lines:
+            return []  # triggers fallback (Paddle only)
+        # Since there's no cell detection, return as single-cell rows
+        return [{"text": l["text"], "confidence": l["confidence"]} for l in lines]
+    
+    # For all other columns: apply border completion + hough
     img_done = complete_outer_borders_only(img_bgr)
     bands = detect_cell_borders(img_done)
     if not bands:
         return []  # triggers fallback chain
 
-    if (column_name or "").lower() == "quantity":
+    # Quantity: special processing
+    if column_lower == "quantity":
         spaced, spaced_bands = add_vertical_spacing(img_done, bands, spacing_px=25)
         up = upscale_image(spaced, 4)
         fin = sharpen_image(up, 1.5)
         lines = _docai_lines(fin)
         return _map_to_bands(lines, spaced_bands, scale=4.0)
+    
+    # Description/Material: borders + hough only (no scaling)
     else:
-        # other columns: no spacing/upscale
         lines = _docai_lines(img_done)
         return _map_to_bands(lines, bands, scale=1.0)
 
@@ -1102,8 +1117,9 @@ async def ocr_endpoint(request: Request):
             # table mode: choose by column tag
             elif mode == "table":
                 run_id = form.get("run") or uuid.uuid4().hex[:8]
+                column_lower = (column_id or "").lower()
             
-                # 1) Try Google Document AI (with special treatment for Quantity)
+                # 1) Try Google Document AI (with special treatment for Quantity/PartNumber)
                 try:
                     table_cells = docai_extract_column(img, column_id or "")
                     if any(c.get("text") for c in table_cells):
@@ -1112,7 +1128,16 @@ async def ocr_endpoint(request: Request):
                 except Exception as e:
                     logger.warning(f"DocAI failed: {e}")
             
-                # 2) Fallback: OpenAI vision
+                # 2) Fallback logic depends on column type
+                # For PartNumber: skip OpenAI, go straight to Paddle
+                if column_lower == "partnumber":
+                    logger.info(f"PartNumber column: Skipping OpenAI, using Paddle fallback")
+                    rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    paddle_cells = simple_cells(rgb)
+                    log_backend_choice(run_id, column_id or "", "paddle")
+                    return {"mode": "table", "column": column_id, "table": paddle_cells, "engine": "paddle"}
+            
+                # For other columns: try OpenAI then Paddle
                 try:
                     result = openai_extract_column(image_bytes, column_id or "")
                     if result and any(r.get("text") for r in result):
