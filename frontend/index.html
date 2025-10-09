@@ -2447,17 +2447,17 @@ function isDuplicateChildpartSelection(value, rowIndex) {
             document.getElementById("ocr-process-btn").disabled = Object.keys(fileStates).length === 0;
         }
 
-        // ─────────────────────────────────────────────────────────────────────
+        // ────────────────────────────────────────────────────────────────
         // CRITICAL: OCR Processing with correct column mapping
-        // ─────────────────────────────────────────────────────────────────────
+        // ────────────────────────────────────────────────────────────────
         document.getElementById("ocr-process-btn").addEventListener("click", async () => {
             const processBtn = document.getElementById("ocr-process-btn");
             const originalText = processBtn.textContent;
             processBtn.disabled = true;
             processBtn.textContent = "Processing...";
         
-            console.log("ðŸš€ Starting OCR processing...");
-            console.log("ðŸ" Files to process:", Object.keys(fileStates));
+            console.log("Starting OCR processing...");
+            console.log("Files to process:", Object.keys(fileStates));
         
             const columnKeyMap = {
                 "Part Number": "PartNumber",
@@ -2470,20 +2470,19 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                 const internalColumn = columnKeyMap[label] || label;
         
                 if (!internalColumn) {
-                    console.warn(`âš ï¸ No mapping found for upload label: ${label}`);
+                    console.warn("No mapping found for upload label:", label);
                     continue;
                 }
         
-                console.log(`ðŸ"„ Processing ${label} â†' ${internalColumn}`);
+                console.log("Processing", label, "->", internalColumn);
         
                 const formData = new FormData();
                 formData.append("image", fileStates[label]);
                 formData.append("column", internalColumn);
-                formData.append("mode", "table"); // ← CRITICAL: Backend expects this
+                formData.append("mode", "table");
         
-                // ðŸš€ USE MAIN ENDPOINT (DocAI → OpenAI → Paddle chain)
                 try {
-                    console.log(`ðŸš€ Calling main endpoint for ${label}...`);
+                    console.log("Calling main endpoint for", label);
                     
                     const response = await fetch("https://ocr-gemini-test.onrender.com/", {
                         method: "POST",
@@ -2493,18 +2492,18 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                     if (response.ok) {
                         const data = await response.json();
                         const engine = data.engine || "unknown";
-                        console.log(`âœ… ${engine.toUpperCase()} extracted data for ${label}:`, data);
+                        console.log(engine.toUpperCase(), "extracted data for", label, ":", data);
         
                         if (data.table && Array.isArray(data.table)) {
                             addColumn(data.table, internalColumn);
                         } else {
-                            console.error(`âŒ Invalid response format for ${label}`);
+                            console.error("Invalid response format for", label);
                         }
                     } else {
-                        console.error(`âŒ Backend returned error ${response.status} for ${label}`);
+                        console.error("Backend returned error", response.status, "for", label);
                     }
                 } catch (error) {
-                    console.error(`âŒ Request failed for ${label}:`, error);
+                    console.error("Request failed for", label, ":", error);
                 }
             }
         
@@ -2523,8 +2522,8 @@ function isDuplicateChildpartSelection(value, rowIndex) {
             const panel = document.getElementById("ocr-panel");
             panel.classList.remove("open");
         
-            console.log("✅ OCR processing completed");
-        });        
+            console.log("OCR processing completed");
+        });
         // ─────────────────────────────────────────────────────────────────────
         // Show/Hide help popover
         // ─────────────────────────────────────────────────────────────────────
