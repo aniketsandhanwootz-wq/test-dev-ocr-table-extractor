@@ -831,7 +831,7 @@ Output the cell values only, nothing else."""
         if not lines:
             raise Exception("Empty extraction")
         
-        result = [{"text": line, "confidence": 0.95} for line in lines]
+        result = [{"text": line, "confidence": 0.50} for line in lines]
         
         logger.info(f"GPT-4o extracted {len(result)} items")
         return result
