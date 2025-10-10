@@ -295,8 +295,8 @@ def complete_outer_borders_only(img_bgr,
 
     # Step 7: Draw only the four outer borders
     out = gray.copy()
-    cv2.line(out, (x_left, 0),        (x_left, H-1),      0, thickness=line_thickness)
-    cv2.line(out, (x_right, 0),       (x_right, H-1),     0, thickness=line_thickness)
+#    cv2.line(out, (x_left, 0),        (x_left, H-1),      0, thickness=line_thickness)
+#    cv2.line(out, (x_right, 0),       (x_right, H-1),     0, thickness=line_thickness)
     cv2.line(out, (x_left, y_top),    (x_right, y_top),   0, thickness=line_thickness)
     cv2.line(out, (x_left, y_bot),    (x_right, y_bot),   0, thickness=line_thickness)
     
