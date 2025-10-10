@@ -263,25 +263,43 @@ def add_top_bottom_borders(img_bgr, line_thickness=2):
 # ====== ROW DETECTOR (Hough) ======
 def detect_cell_borders(img_bgr):
     H, W = img_bgr.shape[:2]
-    gray  = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray, 50, 150, apertureSize=3)
     lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=100,
-                            minLineLength=int(W*0.50), maxLineGap=10)
-    ys = []
+                            minLineLength=int(W * 0.5), maxLineGap=10)
+
+    horizontal_lines = []
     if lines is not None:
-        for x1,y1,x2,y2 in lines[:,0]:
-            if abs(y2-y1) < 5:
-                ys.append((y1+y2)//2)
-    ys = sorted(set(ys))
-    merged = []
-    for y in ys:
-        if not merged or abs(y - merged[-1]) > 10:
-            merged.append(y)
+        for line in lines:
+            x1, y1, x2, y2 = line[0]
+            if abs(y2 - y1) < 5:
+                horizontal_lines.append((y1 + y2) // 2)
+
+    horizontal_lines = sorted(set(horizontal_lines))
+    merged_lines = []
+    for y in horizontal_lines:
+        if not merged_lines or abs(y - merged_lines[-1]) > 10:
+            merged_lines.append(y)
+
+    # ---- Add image top and bottom as borders ----
+    # top
+    if not merged_lines or abs(merged_lines[0] - 0) > 10:
+        merged_lines = [0] + merged_lines
+    else:
+        merged_lines[0] = 0
+    # bottom
+    if not merged_lines or abs((H - 1) - merged_lines[-1]) > 10:
+        merged_lines = merged_lines + [H - 1]
+    else:
+        merged_lines[-1] = H - 1
+    # --------------------------------------------
+
     bands = []
-    for i in range(len(merged)-1):
-        y1, y2 = merged[i], merged[i+1]
+    for i in range(len(merged_lines) - 1):
+        y1, y2 = merged_lines[i], merged_lines[i + 1]
         if y2 - y1 > 15:
             bands.append((y1, y2))
+
     return bands
 
 # ====== SPACING / UPSCALE / SHARPEN (used only for Quantity) ======
