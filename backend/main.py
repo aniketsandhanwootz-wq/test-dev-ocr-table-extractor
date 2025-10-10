@@ -232,78 +232,7 @@ def _band_coverage(inv, x_left, x_right, y1, y2):
     total_pixels = band.size
     ink_pixels = (band > 0).sum()
     return float(ink_pixels) / float(total_pixels + 1e-6)
-"""
-def complete_outer_borders_only(img_bgr,
-                                pad_lr=5,
-                                coverage_min=0.012,
-                                line_thickness=2):
-    """
-    Advanced outer border completion with smart corridor detection.
-    
-    Features:
-    - Percentile-based corridor estimation (robust to outliers)
-    - Median row gap calculation for smart border placement
-    - Coverage validation to ensure borders contain actual content
-    - Dynamic top/bottom snapping based on detected row gaps
-    
-    Args:
-        img_bgr: Input BGR image
-        pad_lr: Left/right padding for corridor
-        coverage_min: Minimum ink coverage to validate new bands
-        line_thickness: Thickness of drawn borders
-    
-    Returns:
-        BGR image with completed outer borders only
-    """
-    H, W = img_bgr.shape[:2]
-    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-    inv = _binarize(gray)
 
-    # Step 1: Initial corridor estimate
-    xL0, xR0 = pad_lr, W - 1 - pad_lr
-    Y0 = _find_internal_horizontals(inv, xL0, xR0, min_len_frac=0.25)
-    
-    # Step 2: Refined corridor based on text distribution
-    x_left, x_right = _estimate_corridor_from_text(inv, Y0, pad_lr=pad_lr)
-
-    # Step 3: Detect internal horizontals for statistics
-    Y = _find_internal_horizontals(inv, x_left, x_right, min_len_frac=0.25)
-    d_med = _median_row_gap(Y)
-
-    # Step 4: Initial top/bottom from text edges
-    y_top = _snap_to_text_edge(inv, x_left, x_right, search='up',   pad=4)
-    y_bot = _snap_to_text_edge(inv, x_left, x_right, search='down', pad=4)
-    
-    # Step 5: Adjust using median gap if available
-    if d_med is not None and len(Y) >= 2:
-        y_top = min(y_top, max(0,    int(Y[0]  - 0.8 * d_med)))
-        y_bot = max(y_bot, min(H-1,  int(Y[-1] + 0.8 * d_med)))
-
-    # Step 6: Validate new bands contain actual content
-    if Y:
-        cov_top = _band_coverage(inv, x_left, x_right, 
-                                min(y_top, Y[0]), max(y_top, Y[0]))
-        if cov_top < coverage_min:
-            # Fallback: place border closer to first internal line
-            y_top = max(0, int(Y[0] - max(6, (d_med or 20) * 0.4)))
-        
-        cov_bot = _band_coverage(inv, x_left, x_right,
-                                min(y_bot, Y[-1]), max(y_bot, Y[-1]))
-        if cov_bot < coverage_min:
-            # Fallback: place border closer to last internal line
-            y_bot = min(H-1, int(Y[-1] + max(6, (d_med or 20) * 0.4)))
-
-    # Step 7: Draw only the four outer borders
-    out = gray.copy()
-#    cv2.line(out, (x_left, 0),        (x_left, H-1),      0, thickness=line_thickness)
-#    cv2.line(out, (x_right, 0),       (x_right, H-1),     0, thickness=line_thickness)
-    cv2.line(out, (0, y_top),    (W-1, y_top),   0, thickness=line_thickness)
-    cv2.line(out, (0, y_bot),    (W-1, y_bot),   0, thickness=line_thickness)
-#    cv2.line(out, (x_left, y_top),    (x_right, y_top),   0, thickness=line_thickness)
- #   cv2.line(out, (x_left, y_bot),    (x_right, y_bot),   0, thickness=line_thickness)
-    
-    return cv2.cvtColor(out, cv2.COLOR_GRAY2BGR)
-"""
 def complete_outer_borders_only(img_bgr, line_thickness=2, **kwargs):
     """
     Draw ONLY top and bottom horizontal borders around the text band.
