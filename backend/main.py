@@ -266,7 +266,7 @@ def detect_cell_borders(img_bgr):
     gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray, 50, 150, apertureSize=3)
     lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=100,
-                            minLineLength=int(W * 0.5), maxLineGap=10)
+                            minLineLength=int(W * 0.5), maxLineGap=7)
 
     horizontal_lines = []
     if lines is not None:
