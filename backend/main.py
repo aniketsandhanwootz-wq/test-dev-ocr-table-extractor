@@ -233,35 +233,31 @@ def _band_coverage(inv, x_left, x_right, y1, y2):
     ink_pixels = (band > 0).sum()
     return float(ink_pixels) / float(total_pixels + 1e-6)
 
-def complete_outer_borders_only(img_bgr, line_thickness=2, **kwargs):
-    """
-    Draw ONLY top and bottom horizontal borders around the text band.
-    (Left/right borders are intentionally NOT drawn.)
-    """
+# ====== TOP & BOTTOM BORDER ONLY ======
+def add_top_bottom_borders(img_bgr, line_thickness=2):
+    """Add only top and bottom horizontal borders"""
     H, W = img_bgr.shape[:2]
     gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-
-    # Otsu binarize then invert so ink = 1s
     _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     inv = 255 - binary
-
-    # Vertical projection → rows that contain ink
+    
+    # Find vertical projection to detect text boundaries
     vertical_proj = np.sum(inv, axis=1)
-    threshold = np.max(vertical_proj) * 0.02  # 2% of max row-ink as cutoff
+    threshold = np.max(vertical_proj) * 0.02
     text_rows = np.where(vertical_proj > threshold)[0]
-
+    
     if len(text_rows) > 0:
-        y_top = max(0,           int(text_rows[0])  - 4)
-        y_bot = min(H - 1,       int(text_rows[-1]) + 4)
+        y_top = max(0, text_rows[0] - 4)
+        y_bottom = min(H - 1, text_rows[-1] + 4)
     else:
-        # Fallback if we didn’t find “ink”
-        y_top, y_bot = 0, H - 1
-
-    # Draw only the two horizontal lines
+        y_top = 0
+        y_bottom = H - 1
+    
+    # Draw only top and bottom lines
     out = gray.copy()
-    cv2.line(out, (0, y_top), (W - 1, y_top), 0, thickness=line_thickness)
-    cv2.line(out, (0, y_bot), (W - 1, y_bot), 0, thickness=line_thickness)
-
+    cv2.line(out, (0, y_top), (W-1, y_top), 0, thickness=line_thickness)
+    cv2.line(out, (0, y_bottom), (W-1, y_bottom), 0, thickness=line_thickness)
+    
     return cv2.cvtColor(out, cv2.COLOR_GRAY2BGR)
 
 # ====== ROW DETECTOR (Hough) ======
@@ -378,7 +374,8 @@ def docai_extract_column(img_bgr, column_name: str):
         return [{"text": l["text"], "confidence": l["confidence"]} for l in lines]
     
     # For all other columns: apply border completion + hough
-    img_done = complete_outer_borders_only(img_bgr)
+    #img_done = complete_outer_borders_only(img_bgr)
+    img_done = add_top_bottom_borders(img_bgr)
     bands = detect_cell_borders(img_done)
     if not bands:
         return []  # triggers fallback chain
