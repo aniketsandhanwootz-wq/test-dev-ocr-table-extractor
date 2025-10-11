@@ -2207,7 +2207,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                 }
 
                 // ===== 3. STANDARD EDIT branch =================================
-                if (source === 'edit'|| source === 'CopyPaste.paste') {
+                if (source === 'edit') {
                     changes.forEach(([row, prop, oldVal, newVal]) => {
                         if (oldVal === newVal) return;
 
