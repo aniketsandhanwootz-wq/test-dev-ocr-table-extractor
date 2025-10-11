@@ -1099,6 +1099,13 @@ async def ocr_endpoint(request: Request):
                 # 1) Try Google Document AI (with special treatment for Quantity/PartNumber)
                 try:
                     table_cells = docai_extract_column(img, column_id or "")
+                    
+                    # ====== NEW: QUANTITY SINGLE-CELL FALLBACK ======
+                    if column_lower == "quantity" and len(table_cells) == 1:
+                        logger.warning(f"⚠️ Quantity column: Only 1 cell detected by DocAI, falling back to OpenAI")
+                        raise Exception("Single cell detected - triggering OpenAI fallback")
+                    # ====== END QUANTITY FALLBACK ======
+                    
                     if any(c.get("text") for c in table_cells):
                         log_backend_choice(run_id, column_id or "", "docai")
                         return {"mode": "table", "column": column_id, "table": table_cells, "engine": "docai"}
