@@ -2378,7 +2378,20 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                         }
                         // In your afterChange handler, replace the Type validation section with:
                         if (prop === 'Type') {
-                            console.log(`🔄 Type changed to: "${newVal}" for row ${row}`);
+                          // ✅ normalize common pasted variants before the rest of your logic runs
+                          const canonicalizeType = (v) => {
+                            const s = (v ?? '').toString().trim().toLowerCase().replace(/\s+/g, '');
+                            if (s === 'childpart') return 'Child Part';
+                            if (s === 'bo' || s === 'boughtout' || s === 'b.o') return 'BO';
+                            if (s === 'missingdrawing' || s === 'missingchildpart')
+                              return TYPE_DISPLAY_NAMES["Missing Childpart"];
+                            return v;
+                          };
+                          const canonical = canonicalizeType(newVal);
+                          if (canonical !== newVal) {
+                            hot.setDataAtCell(row, hot.propToCol('Type'), canonical, 'auto-validate');
+                            return; // let the normalized value re-enter the same block
+                          }
                         
                             // CLEAR missing drawing flag when user sets Type to BO or Missing Drawing
                             if (newVal === 'BO' || newVal === TYPE_DISPLAY_NAMES["Missing Childpart"]) {
