@@ -1165,6 +1165,37 @@
                 width: 100%;
             }
         }
+        /* ====== Pill look for Type & Matched Childpart cells ====== */
+        .handsontable td.pill-select {
+          background: #e9ecef !important;          /* light pill */
+          color: #111 !important;                   /* readable text */
+          border: 1px solid #d1d5db !important;
+          border-radius: 9999px !important;
+          padding: 2px 24px 2px 10px !important;    /* space for caret */
+          position: relative;
+          cursor: pointer;
+        }
+        .handsontable td.pill-select.current {
+          background: #f3f4f6 !important;
+          outline: 1px solid #D99E01 !important;    /* your theme highlight */
+          box-shadow: inset 0 0 0 2px rgba(217,158,1,.25);
+        }
+        /* Big caret on right */
+        .handsontable td.pill-select::after {
+          content: "";
+          position: absolute;
+          right: 8px; top: 50%;
+          transform: translateY(-50%);
+          width: 0; height: 0;
+          border-left: 5px solid transparent;
+          border-right: 5px solid transparent;
+          border-top: 6px solid #111;               /* caret color */
+          opacity: .85; pointer-events: none;
+        }
+        /* Hand cursor on dropdown cells (extra) */
+        .handsontable td.htAutocomplete,
+        .handsontable td.htDropdown { cursor: pointer; }
+        
     </style>
 </head>
 
@@ -1907,6 +1938,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                         if (isMatched || isType) {
                             // dropdown renderer for mapping columns
                             Handsontable.renderers.DropdownRenderer.apply(this, arguments);
+                            td.classList.add('pill-select', prop === 'Matched Childpart' ? 'pill-part' : 'pill-type');
 
                             // Add Type and Row specific styling
                             if (prop === "Type") {
@@ -2154,6 +2186,33 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             });
                     }, 0);
                 },
+            });
+            // 👇 Full-cell click => open editor/list (Type & Matched Childpart)
+            hot.addHook('afterOnCellMouseDown', (evt, coords) => {
+              if (coords.row < 0 || coords.col < 0) return;
+            
+              const prop = hot.colToProp(coords.col);
+              if (prop !== 'Type' && prop !== 'Matched Childpart') return;
+            
+              // Matched Childpart me BO / Missing Drawing rows me dropdown mat kholna
+              if (prop === 'Matched Childpart') {
+                const rowData = hot.getSourceDataAtRow(coords.row) || {};
+                const t = (rowData.Type || '').trim();
+                if (t === 'BO' || t === TYPE_DISPLAY_NAMES["Missing Childpart"]) return;
+              }
+            
+              // Selection ke apply hone ke baad editor khol do
+              setTimeout(() => {
+                hot.selectCell(coords.row, coords.col);
+                const ed = hot.getActiveEditor();
+                if (!ed) return;
+                ed.beginEditing('');
+            
+                // Autocomplete list ko turant dikhao (empty query)
+                if (prop === 'Matched Childpart' && typeof ed.updateChoicesList === 'function') {
+                  ed.updateChoicesList('');
+                }
+              }, 0);
             });
 
             // --- Unified afterChange handler: edit, cut, paste -----------------------------------------------
