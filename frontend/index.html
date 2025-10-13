@@ -2207,7 +2207,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
             hot.addHook('afterChange', (changes, source) => {
             
                 if (!changes) return;
-                if (source === 'edit' || source === 'CopyPaste.paste') {
+                if (source === 'edit' || source === 'CopyPaste.paste' || source === 'Autofill.fill') {
                   resetNotificationGate();
                 }
 
@@ -2269,7 +2269,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                 }
 
                 // ===== 3. STANDARD EDIT branch =================================
-                const shouldValidate = (source === 'edit' || source === 'CopyPaste.paste');
+                const shouldValidate = (source === 'edit' || source === 'CopyPaste.paste' || source === 'Autofill.fill');
                 if (shouldValidate) {
                     changes.forEach(([row, prop, oldVal, newVal]) => {
                         if (oldVal === newVal) return;
