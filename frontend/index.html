@@ -1835,16 +1835,18 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                     
                     // ADD THIS VALIDATOR FUNCTION:
                     validator: isMatched ? function(value, callback) {
-                      const selection = hot.getSelected();
-                      if (!selection) { callback(true); return; }
+                      // ✅ row-accurate: use validator context instead of selection
+                      const hotInstance = this.instance || hot;
+                      const currentRow =
+                        (typeof this.row === 'number')
+                          ? this.row
+                          : (hotInstance?.getSelected?.()?.[0]?.[0] ?? 0);
                     
-                      const currentRow = selection[0][0];
-                      const rowData = hot.getSourceDataAtRow(currentRow) || {};
+                      const rowData = hotInstance.getSourceDataAtRow(currentRow) || {};
                       const currentType = (rowData?.Type || "").trim();
                     
                       // Always allow empty
                       if (!value || value.toString().trim() === "") {
-                        // Clearing the cell shouldn’t show red flag
                         spreadsheetData[currentRow]["_missingDrawing"] = false;
                         callback(true);
                         return;
@@ -1862,40 +1864,40 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                         const isValidChildpart = windowChildParts.includes(val);
                     
                         if (!isValidChildpart) {
-                          // flag as missing instead of rejecting
                           spreadsheetData[currentRow]["_missingDrawing"] = true;
-                    
                           const partText = (rowData["PartNumber"]?.text) || "";
-                          spreadsheetData[currentRow]["_similarityScore"] = partText ? sequentialCharacterMatch(partText, val) : 0;
+                          spreadsheetData[currentRow]["_similarityScore"] =
+                            partText ? sequentialCharacterMatch(partText, val) : 0;
                     
                           setTimeout(() => {
                             showNotification(`"${val}" is not a valid child part.`, 'error');
                             requestNotificationRefreshOnce();
-                            hot.render();
+                            hotInstance.render();   // ← use the local instance
                           }, 10);
                     
-                          callback(true); // ✅ accept, we’re flagging
+                          callback(true); // keep invalid value but flagged
                           return;
                         }
                     
                         // Duplicate → notify but don’t reject
-                        const isDuplicate = isDuplicateChildpartSelection(val, currentRow);
-                        if (isDuplicate) {
+                        if (isDuplicateChildpartSelection(val, currentRow)) {
                           setTimeout(() => {
                             showNotification(`"${val}" is already used in another Child Part row.`, 'error');
                             requestNotificationRefreshOnce();
-                            hot.render();
+                            hotInstance.render();
                           }, 10);
-                          callback(true); // ✅ accept, decision to block happens on submit
+                          callback(true);
                           return;
                         }
                     
-                        // If valid & not duplicate, clear any error flag
+                        // Valid → clear flag
                         spreadsheetData[currentRow]["_missingDrawing"] = false;
                       }
                     
                       callback(true);
                     } : undefined,
+
+
                     allowInvalid: true, // ✅ let invalid stick so we can flag it
                     
                     readOnly: false, // all columns remain editable
@@ -2158,7 +2160,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
             hot.addHook('afterChange', (changes, source) => {
             
                 if (!changes) return;
-                if (source === 'edit') {
+                if (source === 'edit' || source === 'CopyPaste.paste') {
                   resetNotificationGate();
                 }
 
@@ -2220,7 +2222,8 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                 }
 
                 // ===== 3. STANDARD EDIT branch =================================
-                if (source === 'edit') {
+                const shouldValidate = (source === 'edit' || source === 'CopyPaste.paste');
+                if (shouldValidate) {
                     changes.forEach(([row, prop, oldVal, newVal]) => {
                         if (oldVal === newVal) return;
 
