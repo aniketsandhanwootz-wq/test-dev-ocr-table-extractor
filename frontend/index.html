@@ -1835,55 +1835,68 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                     
                     // ADD THIS VALIDATOR FUNCTION:
                     validator: isMatched ? function(value, callback) {
-                        const selection = hot.getSelected();
-                        if (!selection) {
-                            callback(true);
-                            return;
-                        }
-                        
-                        const currentRow = selection[0][0];
-                        const rowData = hot.getSourceDataAtRow(currentRow) || {};
-                        const currentType = (rowData?.Type || "").trim();
-                        
-                        // Allow empty values
-                        if (!value || value.toString().trim() === "") {
-                            callback(true);
-                            return;
-                        }
-                        
-                        // BO and Missing Drawing rows: accept ANY value
-                        if (currentType === "BO" || currentType === TYPE_DISPLAY_NAMES["Missing Childpart"]) {
-                            callback(true);
-                            return;
-                        }
-                        
-                        // Child Part rows: strict validation
-                        if (currentType === "Child Part") {
-                            const isValidChildpart = windowChildParts.includes(value.toString());
-                            
-                            if (!isValidChildpart) {
-                                setTimeout(() => {
-                                    showNotification(`"${value}" is not a valid child part. Please select from the dropdown.`, 'error');
-                                }, 10);
-                                callback(false);
-                                return;
-                            }
-                            
-                            // Check for duplicates
-                            const isDuplicate = isDuplicateChildpartSelection(value.toString(), currentRow);
-                            if (isDuplicate) {
-                                setTimeout(() => {
-                                    showNotification(`"${value}" is already used in another Child Part row.`, 'error');
-                                }, 10);
-                                callback(false);
-                                return;
-                            }
-                        }
-                        
-                        // Default: accept value
+                      const selection = hot.getSelected();
+                      if (!selection) { callback(true); return; }
+                    
+                      const currentRow = selection[0][0];
+                      const rowData = hot.getSourceDataAtRow(currentRow) || {};
+                      const currentType = (rowData?.Type || "").trim();
+                    
+                      // Always allow empty
+                      if (!value || value.toString().trim() === "") {
+                        // Clearing the cell shouldn’t show red flag
+                        spreadsheetData[currentRow]["_missingDrawing"] = false;
                         callback(true);
+                        return;
+                      }
+                    
+                      // BO / Missing Drawing → accept anything
+                      if (currentType === "BO" || currentType === TYPE_DISPLAY_NAMES["Missing Childpart"]) {
+                        callback(true);
+                        return;
+                      }
+                    
+                      // Child Part → flag instead of reject
+                      if (currentType === "Child Part") {
+                        const val = value.toString().trim();
+                        const isValidChildpart = windowChildParts.includes(val);
+                    
+                        if (!isValidChildpart) {
+                          // flag as missing instead of rejecting
+                          spreadsheetData[currentRow]["_missingDrawing"] = true;
+                    
+                          const partText = (rowData["PartNumber"]?.text) || "";
+                          spreadsheetData[currentRow]["_similarityScore"] = partText ? sequentialCharacterMatch(partText, val) : 0;
+                    
+                          setTimeout(() => {
+                            showNotification(`"${val}" is not a valid child part.`, 'error');
+                            requestNotificationRefreshOnce();
+                            hot.render();
+                          }, 10);
+                    
+                          callback(true); // ✅ accept, we’re flagging
+                          return;
+                        }
+                    
+                        // Duplicate → notify but don’t reject
+                        const isDuplicate = isDuplicateChildpartSelection(val, currentRow);
+                        if (isDuplicate) {
+                          setTimeout(() => {
+                            showNotification(`"${val}" is already used in another Child Part row.`, 'error');
+                            requestNotificationRefreshOnce();
+                            hot.render();
+                          }, 10);
+                          callback(true); // ✅ accept, decision to block happens on submit
+                          return;
+                        }
+                    
+                        // If valid & not duplicate, clear any error flag
+                        spreadsheetData[currentRow]["_missingDrawing"] = false;
+                      }
+                    
+                      callback(true);
                     } : undefined,
-
+                    allowInvalid: true, // ✅ let invalid stick so we can flag it
                     
                     readOnly: false, // all columns remain editable
                     wordWrap: true, // ✅ enable per-column wrap
@@ -2305,11 +2318,14 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                                 const prospectiveIsChildPart = (typeVal === 'Child Part') ||
                                                                (!typeVal && newVal && windowChildParts.includes(newVal.toString()));
                                 if (prospectiveIsChildPart && newVal && newVal.toString().trim() !== '') {
-                                    if (isDuplicateChildpartSelection(newVal.toString(), row)) {
-                                        hot.setDataAtCell(row, colIndex, '', 'validation-duplicate');
-                                        return;
-                                    }
+                                  if (isDuplicateChildpartSelection(newVal.toString(), row)) {
+                                    showNotification(`"${newVal}" is already used in another Child Part row.`, 'error');
+                                    requestNotificationRefreshOnce();
+                                    hot.render();
+                                    return;
+                                  }
                                 }
+
                             }
                         
                             // ✅ Clear missing drawing flag when valid value provided
@@ -2337,13 +2353,23 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                         
                             // ✅ Validate if Type is already "Child Part"
                             if (typeVal === 'Child Part' && newVal && newVal.toString().trim() !== '') {
-                                const isValid = windowChildParts.includes(newVal.toString());
-                                if (!isValid) {
-                                    hot.setDataAtCell(row, colIndex, '', 'validation-clear');
-                                    showNotification(`"${newVal}" is not a valid child part. Please select from the dropdown list.`, 'error');
-                                    return;
-                                }
+                              const val = newVal.toString().trim();
+                              const isValid = windowChildParts.includes(val);
+                            
+                              if (!isValid) {
+                                spreadsheetData[row]["_missingDrawing"] = true;
+                                const partText = (hot.getSourceDataAtRow(row)["PartNumber"]?.text) || "";
+                                spreadsheetData[row]["_similarityScore"] = partText ? sequentialCharacterMatch(partText, val) : 0;
+                            
+                                showNotification(`"${val}" is not a valid child part.`, 'error');
+                                requestNotificationRefreshOnce();
+                                hot.render();
+                                return;
+                              } else {
+                                spreadsheetData[row]["_missingDrawing"] = false;
+                              }
                             }
+
                         
                             refreshNotifications();
                         }
@@ -2359,57 +2385,59 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                         
                             // ✅ ENHANCED: Validate when changing TO Child Part
                             if (newVal === 'Child Part') {
-                                // ✅ GUARD: Skip our own programmatic changes (prevent loops)
-                                if (source === 'validation-clear' || source === 'auto-validate') {
-                                    console.log(`⏭️ Skipping Type validation (source=${source})`);
-                                    return;
+                              // ✅ GUARD: Skip our own programmatic changes (prevent loops)
+                              if (source === 'validation-clear' || source === 'auto-validate') {
+                                console.log(`⏭️ Skipping Type validation (source=${source})`);
+                                return;
+                              }
+                            
+                              const rowData = hot.getSourceDataAtRow(row);
+                              const existingMatch = rowData['Matched Childpart'];
+                            
+                              if (existingMatch && existingMatch.toString().trim() !== '') {
+                                const matchValue = existingMatch.toString().trim();
+                            
+                                // Check 1: Valid childpart?
+                                const isValid = windowChildParts.includes(matchValue);
+                            
+                                // Check 2: Duplicate?
+                                const isDuplicate = isDuplicateChildpartSelection(matchValue, row);
+                            
+                                if (!isValid) {
+                                  console.warn(`⚠️ Type→Child Part but "${matchValue}" not valid - flagging`);
+                                  spreadsheetData[row]["_missingDrawing"] = true;
+                                  spreadsheetData[row]["_similarityScore"] = 0;
+                            
+                                  setTimeout(() => {
+                                    showNotification(`"${matchValue}" is not a valid child part.`, 'error');
+                                    requestNotificationRefreshOnce(); // gentler than refreshNotifications()
+                                    hot.render(); // show red ! icon
+                                  }, 10);
+                                  return;
                                 }
-                                
-                                const rowData = hot.getSourceDataAtRow(row);
-                                const existingMatch = rowData['Matched Childpart'];
-                        
-                                if (existingMatch && existingMatch.toString().trim() !== '') {
-                                    const matchValue = existingMatch.toString().trim();
-                                    
-                                    // ✅ Define column index FIRST
-                                    const matchColIndex = hot.propToCol('Matched Childpart');
-                                    
-                                    // Check 1: Valid childpart?
-                                    const isValid = windowChildParts.includes(matchValue);
-                                    
-                                    // Check 2: Duplicate?
-                                    const isDuplicate = isDuplicateChildpartSelection(matchValue, row);
-                                    
-                                    if (!isValid) {
-                                        console.warn(`⚠️ Type→Child Part but "${matchValue}" not valid - clearing`);
-                                        setTimeout(() => {
-                                            showNotification(`"${matchValue}" is not a valid child part. Please select from dropdown.`, 'error');
-                                            hot.setDataAtCell(row, matchColIndex, '', 'validation-clear');
-                                        }, 10);
-                                        return;
-                                    }
-                                    
-                                    if (isDuplicate) {
-                                        console.warn(`⚠️ Type→Child Part but "${matchValue}" is duplicate - clearing`);
-                                        setTimeout(() => {
-                                            showNotification(`"${matchValue}" is already used in another Child Part row.`, 'error');
-                                            hot.setDataAtCell(row, matchColIndex, '', 'validation-clear');
-                                        }, 10);
-                                        return;
-                                    }
-                                    
-                                    // ✅ Calculate similarity with OCR data
-                                    const partCell = rowData["PartNumber"];
-                                    const partText = partCell?.text || "";
-                                    if (partText) {
-                                        const sim = sequentialCharacterMatch(partText, matchValue);
-                                        spreadsheetData[row]["_similarityScore"] = sim;
-                                        console.log(`📊 Calculated similarity: ${sim}`);
-                                    }
-                                    
-                                    console.log(`✅ Validated existing Part Number: "${matchValue}"`);
+                            
+                                if (isDuplicate) {
+                                  console.warn(`⚠️ Type→Child Part but "${matchValue}" is duplicate - notifying`);
+                                  setTimeout(() => {
+                                    showNotification(`"${matchValue}" is already used in another Child Part row.`, 'error');
+                                    requestNotificationRefreshOnce();
+                                    hot.render();
+                                  }, 10);
+                                  return;
                                 }
+                            
+                                // ✅ Valid + not duplicate → compute similarity (if PartNumber OCR exists)
+                                const partCell = rowData["PartNumber"];
+                                const partText = partCell?.text || "";
+                                if (partText) {
+                                  const sim = sequentialCharacterMatch(partText, matchValue);
+                                  spreadsheetData[row]["_similarityScore"] = sim;
+                                }
+                              }
+                            
+                              requestNotificationRefreshOnce();
                             }
+
                         
                             refreshNotifications();
                         }
