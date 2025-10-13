@@ -2244,74 +2244,98 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                         }
 
                         // Childpart validation against Type
+                        // Childpart validation against Type
                         if (prop === 'Matched Childpart') {
                             const rowData = hot.getSourceDataAtRow(row);
                             const typeVal = rowData['Type'];
-                            console.log(`🔍 Select Childpart changed: "${newVal}", Type: "${typeVal}"`);
-
-                            // --- Duplicate guard for "Child Part" mapping ---
-                            // Determine what the Type will be for this row after this change.
-                            // If current Type is empty and the new value is a valid option,
-                            // our logic auto-sets it to "Child Part" (see below). We must
-                            // check duplicates against that prospective state as well.
-                            // Skip running the duplicate check on our own synthetic clear
-                            if (source !== 'validation-duplicate') {
-                              const prospectiveIsChildPart = (typeVal === 'Child Part') ||
-                                                             (!typeVal && newVal && windowChildParts.includes(newVal.toString()));
-                              if (prospectiveIsChildPart && newVal && newVal.toString().trim() !== '') {
-                                if (isDuplicateChildpartSelection(newVal.toString(), row)) {
-                                  hot.setDataAtCell(row, colIndex, '', 'validation-duplicate');
-                                  return;
+                            console.log(`🔍 Matched Childpart changed: "${newVal}", Type: "${typeVal}"`);
+                        
+                            // 🆕 AUTO-MATCHING: If user pastes value, try to find best match (reuse OCR logic)
+                            if (newVal && newVal.toString().trim() !== '' && !typeVal) {
+                                const pastedValue = newVal.toString().trim();
+                                
+                                // Reuse the same matching logic as OCR
+                                if (windowChildParts && windowChildParts.length > 0) {
+                                    const best = findBestSequentialMatch(pastedValue, windowChildParts);
+                                    console.log(`🎖️ Best match for "${pastedValue}": "${best.bestMatch.target}" (${best.bestMatch.rating})`);
+                                    
+                                    if (best.bestMatch.rating > 0.85) {
+                                        const matchText = best.bestMatch.target;
+                                        
+                                        // Check if it would be a duplicate
+                                        if (!isDuplicateChildpartSelection(matchText, row)) {
+                                            // Replace with better match (like OCR does)
+                                            setTimeout(() => {
+                                                hot.setDataAtCell(row, colIndex, matchText);
+                                                hot.setDataAtCell(row, hot.propToCol('Type'), 'Child Part');
+                                                spreadsheetData[row]["_similarityScore"] = best.bestMatch.rating;
+                                                spreadsheetData[row]["_missingDrawing"] = false;
+                                                console.log(`✅ Auto-matched "${pastedValue}" → "${matchText}"`);
+                                            }, 10);
+                                            return;
+                                        } else {
+                                            // Duplicate - clear it
+                                            hot.setDataAtCell(row, colIndex, '', 'validation-duplicate');
+                                            showNotification(`"${matchText}" is already used in another Child Part row.`, 'error');
+                                            return;
+                                        }
+                                    } else {
+                                        // No good match - flag as missing drawing (like OCR does)
+                                        spreadsheetData[row]["Matched Childpart"] = pastedValue;
+                                        spreadsheetData[row]["_missingDrawing"] = true;
+                                        spreadsheetData[row]["_similarityScore"] = 0;
+                                        console.log(`❌ No match for "${pastedValue}" - flagged as missing drawing`);
+                                    }
                                 }
-                              }
                             }
-
-                            // ✅ ALWAYS clear missing drawing error when user provides ANY value
+                        
+                            // --- Duplicate guard for "Child Part" mapping ---
+                            if (source !== 'validation-duplicate') {
+                                const prospectiveIsChildPart = (typeVal === 'Child Part') ||
+                                                               (!typeVal && newVal && windowChildParts.includes(newVal.toString()));
+                                if (prospectiveIsChildPart && newVal && newVal.toString().trim() !== '') {
+                                    if (isDuplicateChildpartSelection(newVal.toString(), row)) {
+                                        hot.setDataAtCell(row, colIndex, '', 'validation-duplicate');
+                                        return;
+                                    }
+                                }
+                            }
+                        
+                            // ✅ Clear missing drawing error when user provides valid value
                             if (newVal && newVal.toString().trim() !== '') {
-                                // Clear missing drawing error
                                 spreadsheetData[row]["_missingDrawing"] = false;
-                                console.log(`✅ Cleared _missingDrawing flag - user selected: "${newVal}"`);
-
-                                // Auto-set Type to "Child Part" if:
-                                // 1. User selected a valid childpart from the list
-                                // 2. Type is currently empty/null
+                        
+                                // Auto-set Type to "Child Part" if valid childpart selected
                                 if (windowChildParts.includes(newVal.toString()) && !typeVal) {
                                     const typeColIndex = hot.propToCol('Type');
                                     hot.setDataAtCell(row, typeColIndex, 'Child Part');
-                                    console.log(`✅ Auto-set Type to "Child Part" for: "${newVal}"`);
                                 }   
                             }
-
-                            // Calculate similarity score for manual edits
+                        
+                            // Calculate similarity score
                             const partCell = rowData["PartNumber"];
                             const partText = partCell?.text || "";
                             if (partText && newVal && newVal.toString().trim() !== '') {
                                 const sim = sequentialCharacterMatch(partText, newVal.toString());
                                 spreadsheetData[row]["_similarityScore"] = sim;
-                                console.log(`📊 Calculated similarity: ${sim}`);
                             } else if (!newVal || newVal.toString().trim() === '') {
-                                // Clear similarity when field is emptied
                                 delete spreadsheetData[row]["_similarityScore"];
-                                // Set missing drawing flag when field is cleared
                                 if (partText) {
                                     spreadsheetData[row]["_missingDrawing"] = true;
                                 }
                             }                         
-
+                        
                             if (typeVal === 'Child Part' && newVal && newVal.toString().trim() !== '') {
                                 const isValid = windowChildParts.includes(newVal.toString());
                                 if (!isValid) {
-                                    console.warn(`⚠️ Invalid childpart selection: "${newVal}" - clearing cell`);
                                     hot.setDataAtCell(row, colIndex, '', 'validation-clear');
                                     showNotification(`"${newVal}" is not a valid child part. Please select from the dropdown list.`, 'error');
                                     return;
                                 }
                             }
-
+                        
                             refreshNotifications();
-                            // BO type always allowed
                         }
-
                         // In your afterChange handler, replace the Type validation section with:
 // In your afterChange handler, Type validation section
                         if (prop === 'Type') {
