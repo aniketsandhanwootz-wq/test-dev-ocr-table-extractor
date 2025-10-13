@@ -2414,12 +2414,13 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             refreshNotifications();
                         }
 
-                        // Optional logging for Type edits  ← KEEP THIS LINE
-                        if (prop === 'Type') {
-                            console.log(`🔄 Type changed to: "${newVal}" for row ${row}`);
-                        }
-            });
-        }
+                        // Optional logging for Type edits
+                                                if (prop === 'Type') {
+                                                    console.log(`🔄 Type changed to: "${newVal}" for row ${row}`);
+                                                }
+                                            });  // ← Close changes.forEach
+                                        }        // ← Close if (source === 'edit')
+                                    });          // ← Close hot.addHook('afterChange')
 
         // ─────────────────────────────────────────────────────────────────────
         // addColumn: used by OCR processing to inject a new column's OCR data
