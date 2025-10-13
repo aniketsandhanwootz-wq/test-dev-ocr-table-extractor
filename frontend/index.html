@@ -464,6 +464,22 @@
             background-color: #231d0f !important;
         }
 
+        /* Target wtBorder current elements with inline background-color */
+        div.wtBorder.current[style*="background-color"] {
+            background-color: 1px #D99E01 !important;
+        }
+
+        /* More specific targeting */
+        .handsontable div.wtBorder.current {
+            background-color: 1px #D99E01 !important;
+        }
+
+        /* Target all variations */
+        div.wtBorder.current,
+        div.wtBorder.current.corner {
+            background-color: #D99E01 !important;
+        }
+
         /* COLUMN SELECTION */
         /* More specific targeting for column/row selections */
         .handsontable .wtBorder.area[style*="background-color"] {
@@ -704,7 +720,7 @@
 
 
         /* More specific class targeting */
-      /*  .handsontable textarea.handsontableInput,
+        .handsontable textarea.handsontableInput,
         .handsontable input.handsontableInput {
             background-color: #ffffff !important;
             color: #000000 !important;
@@ -719,7 +735,6 @@
         .handsontable .wtHolder input {
             background: #ffffff !important;
         }
-        */
 
         /* Instructions bar above the table */
         .instructions {
@@ -1150,21 +1165,6 @@
                 width: 100%;
             }
         }
-        /* Hand cursor on dropdown cells (extra) */
-        .handsontable td.htAutocomplete,
-        .handsontable td.htDropdown { cursor: pointer; }
-
-        /* Force visible 1px yellow selection outline */
-        #handsontable-container .wtBorder.current {
-          border-style: solid !important;
-          border-width: 1px !important;
-          border-color: #D99E01 !important;
-        }
-        #handsontable-container .wtBorder {
-          z-index: 1000 !important; /* keep borders over cells */
-        }
-
-        
     </style>
 </head>
 
@@ -1831,7 +1831,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             : undefined,
 
                     strict: false,
-                   /* allowInvalid: false, */
+                    allowInvalid: false,
                     
                     // ADD THIS VALIDATOR FUNCTION:
                     validator: isMatched ? function(value, callback) {
@@ -2139,7 +2139,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                     });
                 },
 
-  /*              afterSelectionEnd: function (r, c, r2, c2) {
+                afterSelectionEnd: function (r, c, r2, c2) {
                     setTimeout(() => {
                         document
                             .querySelectorAll('.wtBorder.current[style*="display: block"]')
@@ -2153,34 +2153,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                                 }
                             });
                     }, 0);
-                },  */
-            });
-            // 👇 Full-cell click => open editor/list (Type & Matched Childpart)
-            hot.addHook('afterOnCellMouseDown', (evt, coords) => {
-              if (coords.row < 0 || coords.col < 0) return;
-            
-              const prop = hot.colToProp(coords.col);
-              if (prop !== 'Type' && prop !== 'Matched Childpart') return;
-            
-              // Matched Childpart me BO / Missing Drawing rows me dropdown mat kholna
-              if (prop === 'Matched Childpart') {
-                const rowData = hot.getSourceDataAtRow(coords.row) || {};
-                const t = (rowData.Type || '').trim();
-                if (t === 'BO' || t === TYPE_DISPLAY_NAMES["Missing Childpart"]) return;
-              }
-            
-              // Selection ke apply hone ke baad editor khol do
-              setTimeout(() => {
-                hot.selectCell(coords.row, coords.col);
-                const ed = hot.getActiveEditor();
-                if (!ed) return;
-                ed.beginEditing('');
-            
-                // Autocomplete list ko turant dikhao (empty query)
-                if (prop === 'Matched Childpart' && typeof ed.updateChoicesList === 'function') {
-                  ed.updateChoicesList('');
-                }
-              }, 0);
+                },
             });
 
             // --- Unified afterChange handler: edit, cut, paste -----------------------------------------------
@@ -2925,7 +2898,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
         function toggleInstructions() {
             const area = document.getElementById('notification-area');
             if (area.className === 'notification-instructions') {
-                hideNotification();
+                clearNotification();
             } else {
                 showNotification('Type or Upload Column screenshots (≤10 rows) in header', 'instructions', 0);
             }
