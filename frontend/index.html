@@ -2907,23 +2907,16 @@ function isDuplicateChildpartSelection(value, rowIndex) {
 
         // Help button
         document.getElementById("header-help-icon").addEventListener("click", (e) => {
-            e.stopPropagation();
-            toggleInstructions();
-
-            // Toggle popover
-            const popover = document.getElementById("header-help-popover");
-            popover.style.display = popover.style.display === "block" ? "none" : "block";
+          e.stopPropagation();
+          toggleInstructions();
         });
-
-        // Close button handles everything
+        
         document.getElementById('notification-close').addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            hideNotification();
-
-            // Also close popover if it was instructions
-            document.getElementById("header-help-popover").style.display = "none";
+          e.preventDefault();
+          e.stopPropagation();
+          hideNotification();
         });
+
 
 
         // Complete refreshNotifications function - handles all error/warning types
