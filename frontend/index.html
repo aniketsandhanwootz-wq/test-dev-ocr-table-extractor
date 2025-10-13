@@ -2106,16 +2106,28 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                         <div class="file-status">Processing...</div>
                         <div class="ocr-image-preview" style="display: none !important;"></div>
                     `;
-
+                    
                     // Clear existing TH content and add upload area
                     TH.innerHTML = "";
                     TH.appendChild(uploadArea);
-
+                    
+                    // ✅ Block header clicks from bubbling to HOT (prevents column selection)
+                    ['mousedown', 'click', 'dblclick', 'touchstart'].forEach(ev => {
+                      uploadArea.addEventListener(ev, e => e.stopPropagation(), { capture: true });
+                    });
+                    
+                    // ✅ Also stop events on the file input itself
+                    const fileInput = uploadArea.querySelector('input[type="file"]');
+                    ['mousedown', 'click', 'dblclick', 'touchstart'].forEach(ev => {
+                      fileInput.addEventListener(ev, e => e.stopPropagation(), { capture: true });
+                    });
+                    
                     // Reinitialize Lucide icons for this new element
                     lucide.createIcons();
-
-                    // Add this single line at the end of your afterGetColHeader function
+                    
+                    // Keep drag & drop on the header upload
                     addDragDropListeners(uploadArea);
+
 
                     // Reattach event listeners for this specific upload area
                     const input = uploadArea.querySelector("input");
@@ -2172,37 +2184,14 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                     if (!editor) return;
                 
                     // Seed with empty string → your source() will return the full list
-                    if (typeof editor.beginEditing === 'function') editor.beginEditing('');
+                    if (typeof editor.beginEditing === 'function') editor.beginEditing();
                 
                     // For HOT 12, Autocomplete/Dropdown editors expose open()
                     if (typeof editor.open === 'function') editor.open();
                   });
                 },
-            });
-            // ⬇️ place this right after:  hot = new Handsontable(container, { ... });
-            
-            hot.addHook('afterOnCellMouseDown', (event, coords, TD) => {
-              if (!coords || coords.row == null || coords.col == null) return;
-            
-              const prop = hot.colToProp(coords.col);
-              if (prop !== 'Type' && prop !== 'Matched Childpart') return;
-            
-              // If another editor is open, close it first
-              const active = hot.getActiveEditor();
-              if (active && active.isOpened()) active.finishEditing();
-            
-              // Select clicked cell and start editing immediately
-              hot.selectCell(coords.row, coords.col);
-            
-              // Let HOT attach the editor, then begin editing so the list shows on first click
-              requestAnimationFrame(() => {
-                const ed = hot.getActiveEditor();
-                if (!ed) return;
-            
-                // Start editor with empty seed so your `source()` returns the full list
-                ed.beginEditing('');
-              });
-            });
+            });            
+);
 
             // --- Unified afterChange handler: edit, cut, paste -----------------------------------------------
             hot.addHook('afterChange', (changes, source) => {
