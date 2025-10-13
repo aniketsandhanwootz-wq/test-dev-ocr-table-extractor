@@ -1153,6 +1153,17 @@
         /* Hand cursor on dropdown cells (extra) */
         .handsontable td.htAutocomplete,
         .handsontable td.htDropdown { cursor: pointer; }
+
+        /* Force visible 1px yellow selection outline */
+        #handsontable-container .wtBorder.current {
+          border-style: solid !important;
+          border-width: 1px !important;
+          border-color: #D99E01 !important;
+        }
+        #handsontable-container .wtBorder {
+          z-index: 1000 !important; /* keep borders over cells */
+        }
+
         
     </style>
 </head>
@@ -2128,7 +2139,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                     });
                 },
 
-                afterSelectionEnd: function (r, c, r2, c2) {
+  /*              afterSelectionEnd: function (r, c, r2, c2) {
                     setTimeout(() => {
                         document
                             .querySelectorAll('.wtBorder.current[style*="display: block"]')
@@ -2142,7 +2153,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                                 }
                             });
                     }, 0);
-                },
+                },  */
             });
             // 👇 Full-cell click => open editor/list (Type & Matched Childpart)
             hot.addHook('afterOnCellMouseDown', (evt, coords) => {
@@ -2914,7 +2925,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
         function toggleInstructions() {
             const area = document.getElementById('notification-area');
             if (area.className === 'notification-instructions') {
-                clearNotification();
+                hideNotification();
             } else {
                 showNotification('Type or Upload Column screenshots (≤10 rows) in header', 'instructions', 0);
             }
