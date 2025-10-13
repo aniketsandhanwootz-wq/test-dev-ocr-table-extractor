@@ -2154,6 +2154,34 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             });
                     }, 0);
                 },
+                afterOnCellMouseDown: function (event, coords, TD) {
+                  if (coords.row < 0 || coords.col < 0) return; // ignore headers/spares
+                  const prop = this.colToProp(coords.col);
+                  if (prop !== 'Type' && prop !== 'Matched Childpart') return;
+                
+                  // Ensure our “smart no-match” overlay is not fighting the dropdown
+                  if (typeof hideSmartOverlay === 'function') hideSmartOverlay();
+                
+                  const hotInstance = this;
+                  // Let HOT select cell first, then open the editor + list
+                  setTimeout(() => {
+                    const editor = hotInstance.getActiveEditor();
+                    if (!editor) return;
+                
+                    // Start edit and force the choices list open
+                    if (typeof editor.beginEditing === 'function') editor.beginEditing();
+                    if (typeof editor.open === 'function') editor.open();
+                    else if (typeof editor.showChoicesList === 'function') editor.showChoicesList(); // for some HOT builds
+                
+                    // Match the dropdown listbox width to the cell width
+                    const rect = TD.getBoundingClientRect();
+                    const listbox = document.querySelector('.handsontable.listbox');
+                    if (listbox) {
+                      listbox.style.width = rect.width + 'px';
+                      listbox.style.minWidth = rect.width + 'px';
+                    }
+                  }, 0);
+                },
             });
 
             // --- Unified afterChange handler: edit, cut, paste -----------------------------------------------
