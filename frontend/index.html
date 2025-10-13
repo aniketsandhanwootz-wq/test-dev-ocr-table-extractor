@@ -1165,66 +1165,6 @@
                 width: 100%;
             }
         }
-        /* ====== Pill look for Type & Matched Childpart cells ====== */
-        .handsontable td.pill-select {
-          background: #e9ecef !important;          /* light pill */
-          color: #111 !important;                   /* readable text */
-          border: 1px solid #d1d5db !important;
-          border-radius: 9999px !important;
-          padding: 2px 24px 2px 10px !important;    /* space for caret */
-          position: relative;
-          cursor: pointer;
-        }
-        .handsontable td.pill-select.current {
-          background: #f3f4f6 !important;
-          outline: 1px solid #D99E01 !important;    /* your theme highlight */
-          box-shadow: inset 0 0 0 2px rgba(217,158,1,.25);
-        }
-        /* Big caret on right */
-        /* --- FIX: put caret on ::before (not ::after) --- */
-        .handsontable td.pill-select::before {
-          content: "";
-          position: absolute;
-          right: 8px; 
-          top: 50%;
-          transform: translateY(-50%);
-          width: 0; height: 0;
-          border-left: 5px solid transparent;
-          border-right: 5px solid transparent;
-          border-top: 6px solid #111;   /* caret color */
-          opacity: .85; 
-          pointer-events: none;
-          z-index: 1;                   /* keep below the ! icons */
-        }
-        
-        /* remove/replace your previous .handsontable td.pill-select::after { ... } rule */
-        
-        /* --- Keep the red/yellow icons visible on pill cells --- */
-        /* shift the icons a bit left so they don't overlap the caret */
-        .handsontable td.pill-select.quantity-error-cell::after,
-        .handsontable td.pill-select.needs-review-cell::after {
-          right: 26px !important; /* space for caret */
-          z-index: 2;             /* above caret */
-        }
-        
-        /* --- Make warning/error borders win over the pill’s border/background --- */
-        .handsontable td.pill-select.low-similarity-cell {
-          background: #fff3cd !important;          /* soft yellow */
-          border-color: #ffc107 !important;        /* yellow border */
-        }
-        
-        .handsontable td.pill-select.quantity-error-cell {
-          border-color: #fb0202 !important;        /* red border */
-        }
-        
-        .handsontable td.pill-select.needs-review-cell {
-          border-color: #f0bf2b !important;        /* yellow border */
-        }
-        
-        /* optional: slightly stronger focus outline on selected pill */
-        .handsontable td.pill-select.current {
-          outline: 1.5px solid #D99E01 !important;
-        }
         /* Hand cursor on dropdown cells (extra) */
         .handsontable td.htAutocomplete,
         .handsontable td.htDropdown { cursor: pointer; }
@@ -1971,7 +1911,6 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                         if (isMatched || isType) {
                             // dropdown renderer for mapping columns
                             Handsontable.renderers.DropdownRenderer.apply(this, arguments);
-                            td.classList.add('pill-select', prop === 'Matched Childpart' ? 'pill-part' : 'pill-type');
 
                             // Add Type and Row specific styling
                             if (prop === "Type") {
