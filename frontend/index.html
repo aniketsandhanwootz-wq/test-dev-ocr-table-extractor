@@ -2190,9 +2190,7 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                 
                   // stop HT's default mousedown from doing a blank edit
                   event.stopPropagation();
-                });
-
-            });            
+                });          
 
             // --- Unified afterChange handler: edit, cut, paste -----------------------------------------------
             hot.addHook('afterChange', (changes, source) => {
