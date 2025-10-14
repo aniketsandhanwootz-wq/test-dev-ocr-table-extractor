@@ -1149,6 +1149,66 @@
                 width: 100%;
             }
         }
+
+/* ========== RESPONSIVE DROPDOWN CLICKABLE AREA (Scales with Cell Width) ========== */
+
+/* Make the cell itself position:relative so we can position the clickable area */
+.handsontable td.htAutocomplete,
+.handsontable td.htDropdown {
+  position: relative !important;
+  cursor: pointer !important;
+}
+
+/* Keep the arrow icon visual size unchanged */
+.handsontable td.htAutocomplete .htAutocompleteArrow,
+.handsontable td.htDropdown .htExpandButton {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px !important;
+  height: 16px !important;
+  z-index: 2;
+}
+
+/* Create a percentage-based clickable area on the RIGHT side of cell */
+.handsontable td.htAutocomplete::after,
+.handsontable td.htDropdown::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 25%;  /* Rightmost 25% of cell is clickable for dropdown */
+  min-width: 30px;  /* But never smaller than 30px on tiny screens */
+  max-width: 60px;  /* And never larger than 60px on huge screens */
+  background: transparent;
+  cursor: pointer;
+  z-index: 3;  /* Above everything else in the cell */
+  pointer-events: auto;  /* Ensure it catches clicks */
+}
+
+/* Optional: Subtle hover effect to show the clickable area */
+.handsontable td.htAutocomplete:hover::after,
+.handsontable td.htDropdown:hover::after {
+  background: rgba(217, 158, 1, 0.05);  /* Very subtle yellow tint on hover */
+}
+
+/* Subtle cell highlight when hovering over dropdown area */
+.handsontable td.htAutocomplete:hover,
+.handsontable td.htDropdown:hover {
+  background-color: #1a1a1a !important;
+}
+
+/* Ensure the arrow icon itself is always clickable */
+.handsontable td.htAutocomplete .htAutocompleteArrow,
+.handsontable td.htDropdown .htExpandButton {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+
+        
     </style>
 </head>
 
@@ -2151,48 +2211,6 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             });
                     }, 0);
                 },
-afterOnCellMouseDown: function (event, coords, TD) {
-  if (coords.row < 0 || coords.col < 0) return;
-  const prop = this.colToProp(coords.col);
-  if (prop !== 'Type' && prop !== 'Matched Childpart') return;
-
-  if (typeof hideSmartOverlay === 'function') hideSmartOverlay();
-
-  // ✅ FIX: Get current value BEFORE starting edit
-  const currentValue = this.getDataAtCell(coords.row, coords.col) || '';
-
-  // If an editor is already open on this cell, just ensure list is visible
-  const active = this.getActiveEditor?.();
-  if (active && active.isOpened && active.isOpened()) {
-    // ✅ Ensure dropdown list is visible
-    if (typeof active.open === 'function') {
-      setTimeout(() => active.open(), 0);
-    }
-    return;
-  }
-
-  // Select the cell first
-  this.selectCell(coords.row, coords.col);
-
-  // Start editing with preserved value
-  requestAnimationFrame(() => {
-    const editor = this.getActiveEditor?.();
-    if (!editor) return;
-
-    // ✅ CRITICAL: Start editing with current value
-    if (typeof editor.beginEditing === 'function') {
-      editor.beginEditing(currentValue);
-    }
-
-    // ✅ CRITICAL: Open dropdown AFTER editor has initialized
-    // Use longer delay to ensure editor is ready
-    setTimeout(() => {
-      if (typeof editor.open === 'function') {
-        editor.open();
-      }
-    }, 50);  // 50ms delay crucial for value preservation
-  });
-},
             });            
 
             // --- Unified afterChange handler: edit, cut, paste -----------------------------------------------
