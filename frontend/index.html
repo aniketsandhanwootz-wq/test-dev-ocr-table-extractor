@@ -1150,34 +1150,49 @@
             }
         }
 
-/* Make the cell a positioning context */
+/* ========== FULL CELL CLICKABLE FOR DROPDOWN (Simple Z-Index) ========== */
+
+/* Make dropdown cells position:relative */
 .handsontable td.htAutocomplete,
 .handsontable td.htDropdown {
   position: relative !important;
-  isolation: isolate;
-  overflow: visible !important;
-}
-
-/* EXPAND the arrow to full-cell invisible hit area */
-.handsontable td.htAutocomplete .htAutocompleteArrow,
-.handsontable td.htDropdown .htExpandButton {
-  position: absolute !important;
-  inset: 0 !important;               /* fill whole cell */
-  margin: 0 !important;
-  width: auto !important;
-  height: auto !important;
-  background: transparent !important;
-  /* opacity: 0 !important;             /* invisible but clickable */ */
-  z-index: 3 !important;             /* above content */
-  pointer-events: auto !important;   /* captures the click */
   cursor: pointer !important;
 }
 
-/* Optional hover feedback */
-.handsontable td.htAutocomplete:hover,
-.handsontable td.htDropdown:hover {
-  background-color: #1a1a1a !important;
-}        
+/* The actual dropdown arrow (keep it visible) */
+.handsontable td.htAutocomplete .htAutocompleteArrow,
+.handsontable td.htDropdown .htExpandButton {
+  position: absolute !important;
+  right: 4px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 16px !important;
+  height: 16px !important;
+  z-index: 3 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* CRITICAL: Expand clickable area to ENTIRE CELL */
+.handsontable td.htAutocomplete .htAutocompleteArrow::before,
+.handsontable td.htDropdown .htExpandButton::before {
+  content: '';
+  position: absolute;
+  top: -1000%;      /* Cover entire cell height */
+  right: -1000%;    /* Cover entire cell width */
+  bottom: -1000%;   /* Cover entire cell height */
+  left: -1000%;     /* Cover entire cell width */
+  background: transparent;
+  cursor: pointer;
+  z-index: 5 !important;  /* ABOVE cell content */
+  pointer-events: auto !important;
+}
+
+/* Optional: Hover effect */
+.handsontable td.htAutocomplete:hover .htAutocompleteArrow,
+.handsontable td.htDropdown:hover .htExpandButton {
+  opacity: 1 !important;
+}     
 
 
 
