@@ -2151,53 +2151,47 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             });
                     }, 0);
                 },
-                // afterOnCellMouseDown: function (event, coords, TD) {
-                //   if (coords.row < 0 || coords.col < 0) return;      // ignore headers/spares
-                //   const prop = this.colToProp(coords.col);
-                //   if (prop !== 'Type' && prop !== 'Matched Childpart') return;
+                hot.addHook('afterOnCellMouseDown', function (event, coords) {
+                  if (coords.row < 0 || coords.col < 0) return;
                 
-                //   if (typeof hideSmartOverlay === 'function') hideSmartOverlay();
-                  
-                //   // ✅ FIX: Get current value BEFORE starting edit
-                //   const currentValue = this.getDataAtCell(coords.row, coords.col) || '';  
+                  const prop = this.colToProp(coords.col);
+                  if (prop !== 'Matched Childpart' && prop !== 'Type') return;
                 
-                //   // If an editor is already open on this cell, do nothing (prevents flicker)
-                //   const active = this.getActiveEditor?.();
-                //   if (active && active.isOpened && active.isOpened()) return;
-                    
-                //   // Select the cell and start editing with preserved value
-                //   this.selectCell(coords.row, coords.col);
-                    
-                //   // Let Handsontable select the cell first, then start editing so the list opens on single click
-                // requestAnimationFrame(() => {
-                //   const editor = this.getActiveEditor?.();
-                //   if (!editor) return;
+                  // keep existing value instead of clearing
+                  const currentValue = this.getDataAtCell(coords.row, coords.col) ?? '';
                 
-                //   // Always preserve whatever is already in the cell
-                //   if (typeof editor.beginEditing === 'function') editor.beginEditing(currentValue);
+                  // if an editor is already open here, do nothing
+                  const active = this.getActiveEditor?.();
+                  if (active && active.isOpened && active.isOpened()) return;
                 
-                //   const propName = this.colToProp(coords.col);
+                  // select + begin editing with existing value
+                  this.selectCell(coords.row, coords.col);
                 
-                //   if (propName === 'Matched Childpart') {
-                //     // Autocomplete: DO NOT call open() (it clears the input).
-                //     // Instead, simulate ArrowDown to show the list while keeping the value.
-                //     const inputEl = editor.TEXTAREA;
-                //     if (inputEl && inputEl.dispatchEvent) {
-                //       inputEl.dispatchEvent(new KeyboardEvent('keydown', {
-                //         key: 'ArrowDown',
-                //         code: 'ArrowDown',
-                //         keyCode: 40,
-                //         which: 40,
-                //         bubbles: true
-                //       }));
-                //     }
-                //   } else if (propName === 'Type') {
-                //     // Dropdown editor is safe to open directly
-                //     if (typeof editor.open === 'function') editor.open();
-                //   }
-                // });
+                  requestAnimationFrame(() => {
+                    const editor = this.getActiveEditor?.();
+                    if (!editor) return;
+                
+                    // preserve current value in the editor input
+                    if (typeof editor.beginEditing === 'function') editor.beginEditing(currentValue);
+                
+                    if (prop === 'Matched Childpart') {
+                      // show the autocomplete list without clearing the text
+                      const inputEl = editor.TEXTAREA;
+                      if (inputEl && inputEl.dispatchEvent) {
+                        inputEl.dispatchEvent(new KeyboardEvent('keydown', {
+                          key: 'ArrowDown', code: 'ArrowDown', keyCode: 40, which: 40, bubbles: true
+                        }));
+                      }
+                    } else if (prop === 'Type') {
+                      // dropdown editor can open directly
+                      if (typeof editor.open === 'function') editor.open();
+                    }
+                  });
+                
+                  // stop HT's default mousedown from doing a blank edit
+                  event.stopPropagation();
+                });
 
-                // },
             });            
 
             // --- Unified afterChange handler: edit, cut, paste -----------------------------------------------
