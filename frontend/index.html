@@ -1075,12 +1075,12 @@
         }
 
         /* Error styling for Quantity cells with invalid (non-integer) values */
-        .quantity-error-cell {
-            position: relative;
+        /* .quantity-error-cell {
+            position: relative; */
         }
 
         /* Red warning icon */
-        .quantity-error-cell::after {
+        /* .quantity-error-cell::after {
             content: "!";
             position: absolute;
             top: 2px;
@@ -1089,7 +1089,7 @@
             font-weight: bolder;
             z-index: 10;
             pointer-events: none;
-            color: #fb0202;
+            color: #fb0202; */
             /* <-- RED color for the icon */
         }
 
@@ -1150,48 +1150,65 @@
             }
         }
 
-/* ========== FULL CELL CLICKABLE FOR DROPDOWN (Simple Z-Index) ========== */
-
-/* Make dropdown cells position:relative */
+/* Make dropdown cells a positioning/isolation context */
 .handsontable td.htAutocomplete,
 .handsontable td.htDropdown {
   position: relative !important;
+  isolation: isolate;                 /* contain z-index inside the cell */
   cursor: pointer !important;
 }
 
-/* The actual dropdown arrow (keep it visible) */
+/* Full-cell clickable hit-area (the arrow element fills the TD) */
 .handsontable td.htAutocomplete .htAutocompleteArrow,
 .handsontable td.htDropdown .htExpandButton {
   position: absolute !important;
-  right: 4px !important;
-  top: 50% !important;
-  transform: translateY(-50%) !important;
-  width: 16px !important;
-  height: 16px !important;
-  z-index: 3 !important;
+  inset: 0 !important;                /* fill whole cell */
+  background: transparent !important;
+  margin: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  z-index: 1 !important;              /* BELOW warning icons */
   pointer-events: auto !important;
   cursor: pointer !important;
 }
 
-/* CRITICAL: Expand clickable area to ENTIRE CELL */
-.handsontable td.htAutocomplete .htAutocompleteArrow::before,
-.handsontable td.htDropdown .htExpandButton::before {
-  content: '';
+/* Draw a visible chevron inside the big hit-area */
+.handsontable td.htAutocomplete .htAutocompleteArrow::after,
+.handsontable td.htDropdown .htExpandButton::after {
+  content: "▾";
   position: absolute;
-  top: -100%;      /* Cover entire cell height */
-  bottom: -100%;   /* Cover entire cell height */
-  left: -1000%;     /* Cover entire cell width */
-  background: transparent;
-  cursor: pointer;
-  z-index: 5 !important;  /* ABOVE cell content */
-  pointer-events: auto !important;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  line-height: 1;
+  pointer-events: none;               /* don't steal clicks */
+  opacity: 0.85;
 }
 
-/* Optional: Hover effect */
-.handsontable td.htAutocomplete:hover .htAutocompleteArrow,
-.handsontable td.htDropdown:hover .htExpandButton {
-  opacity: 1 !important;
-}     
+/* Error styling — keep the icon above the hit-area */
+.quantity-error-cell { 
+  position: relative; 
+  z-index: 2;                         /* sit above z-index:1 hit-area */
+}
+.quantity-error-cell::after {
+  content: "!";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 18px;
+  font-weight: bolder;
+  z-index: 3;                         /* above the hit-area (1) */
+  pointer-events: none;
+  color: #fb0202;
+}
+
+/* Optional hover */
+.handsontable td.htAutocomplete:hover,
+.handsontable td.htDropdown:hover {
+  background-color: #1a1a1a !important;
+}
+  
 
 
 
