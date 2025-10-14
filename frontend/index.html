@@ -2197,7 +2197,21 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                 }
               });
             });
-
+            // immediate repaint helper
+            function repaintNow() {
+              if (!hot) return;
+              requestAnimationFrame(() => hot.render());
+            }
+            
+            // repaint when cell classes change (e.g., quantity-error-cell, needs-review-cell)
+            hot.addHook('afterSetCellMeta', function (row, col, key) {
+              if (key === 'className') repaintNow();
+            });
+            
+            // repaint after any validator completes (covers Enter, Paste, etc.)
+            hot.addHook('afterValidate', function () {
+              repaintNow();
+            });
             // --- Unified afterChange handler: edit, cut, paste -----------------------------------------------
             hot.addHook('afterChange', (changes, source) => {
             
