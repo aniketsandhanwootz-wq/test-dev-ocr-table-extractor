@@ -2151,53 +2151,53 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             });
                     }, 0);
                 },
-                afterOnCellMouseDown: function (event, coords, TD) {
-                  if (coords.row < 0 || coords.col < 0) return;      // ignore headers/spares
-                  const prop = this.colToProp(coords.col);
-                  if (prop !== 'Type' && prop !== 'Matched Childpart') return;
+                // afterOnCellMouseDown: function (event, coords, TD) {
+                //   if (coords.row < 0 || coords.col < 0) return;      // ignore headers/spares
+                //   const prop = this.colToProp(coords.col);
+                //   if (prop !== 'Type' && prop !== 'Matched Childpart') return;
                 
-                  if (typeof hideSmartOverlay === 'function') hideSmartOverlay();
+                //   if (typeof hideSmartOverlay === 'function') hideSmartOverlay();
                   
-                  // ✅ FIX: Get current value BEFORE starting edit
-                  const currentValue = this.getDataAtCell(coords.row, coords.col) || '';  
+                //   // ✅ FIX: Get current value BEFORE starting edit
+                //   const currentValue = this.getDataAtCell(coords.row, coords.col) || '';  
                 
-                  // If an editor is already open on this cell, do nothing (prevents flicker)
-                  const active = this.getActiveEditor?.();
-                  if (active && active.isOpened && active.isOpened()) return;
+                //   // If an editor is already open on this cell, do nothing (prevents flicker)
+                //   const active = this.getActiveEditor?.();
+                //   if (active && active.isOpened && active.isOpened()) return;
                     
-                  // Select the cell and start editing with preserved value
-                  this.selectCell(coords.row, coords.col);
+                //   // Select the cell and start editing with preserved value
+                //   this.selectCell(coords.row, coords.col);
                     
-                  // Let Handsontable select the cell first, then start editing so the list opens on single click
-                requestAnimationFrame(() => {
-                  const editor = this.getActiveEditor?.();
-                  if (!editor) return;
+                //   // Let Handsontable select the cell first, then start editing so the list opens on single click
+                // requestAnimationFrame(() => {
+                //   const editor = this.getActiveEditor?.();
+                //   if (!editor) return;
                 
-                  // Always preserve whatever is already in the cell
-                  if (typeof editor.beginEditing === 'function') editor.beginEditing(currentValue);
+                //   // Always preserve whatever is already in the cell
+                //   if (typeof editor.beginEditing === 'function') editor.beginEditing(currentValue);
                 
-                  const propName = this.colToProp(coords.col);
+                //   const propName = this.colToProp(coords.col);
                 
-                  if (propName === 'Matched Childpart') {
-                    // Autocomplete: DO NOT call open() (it clears the input).
-                    // Instead, simulate ArrowDown to show the list while keeping the value.
-                    const inputEl = editor.TEXTAREA;
-                    if (inputEl && inputEl.dispatchEvent) {
-                      inputEl.dispatchEvent(new KeyboardEvent('keydown', {
-                        key: 'ArrowDown',
-                        code: 'ArrowDown',
-                        keyCode: 40,
-                        which: 40,
-                        bubbles: true
-                      }));
-                    }
-                  } else if (propName === 'Type') {
-                    // Dropdown editor is safe to open directly
-                    if (typeof editor.open === 'function') editor.open();
-                  }
-                });
+                //   if (propName === 'Matched Childpart') {
+                //     // Autocomplete: DO NOT call open() (it clears the input).
+                //     // Instead, simulate ArrowDown to show the list while keeping the value.
+                //     const inputEl = editor.TEXTAREA;
+                //     if (inputEl && inputEl.dispatchEvent) {
+                //       inputEl.dispatchEvent(new KeyboardEvent('keydown', {
+                //         key: 'ArrowDown',
+                //         code: 'ArrowDown',
+                //         keyCode: 40,
+                //         which: 40,
+                //         bubbles: true
+                //       }));
+                //     }
+                //   } else if (propName === 'Type') {
+                //     // Dropdown editor is safe to open directly
+                //     if (typeof editor.open === 'function') editor.open();
+                //   }
+                // });
 
-                },
+                // },
             });            
 
             // --- Unified afterChange handler: edit, cut, paste -----------------------------------------------
