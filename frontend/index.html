@@ -1150,61 +1150,56 @@
             }
         }
 
-/* ========== RESPONSIVE DROPDOWN CLICKABLE AREA (Scales with Cell Width) ========== */
+/* ========== FULL CELL CLICKABLE FOR DROPDOWN (Simple Z-Index) ========== */
 
-/* Make the cell itself position:relative so we can position the clickable area */
+/* Make dropdown cells position:relative */
 .handsontable td.htAutocomplete,
 .handsontable td.htDropdown {
   position: relative !important;
   cursor: pointer !important;
 }
 
-/* Keep the arrow icon visual size unchanged */
+/* The actual dropdown arrow (keep it visible) */
 .handsontable td.htAutocomplete .htAutocompleteArrow,
 .handsontable td.htDropdown .htExpandButton {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
+  position: absolute !important;
+  right: 4px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
   width: 16px !important;
   height: 16px !important;
-  z-index: 2;
-}
-
-/* Create a percentage-based clickable area on the RIGHT side of cell */
-.handsontable td.htAutocomplete::after,
-.handsontable td.htDropdown::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 25%;  /* Rightmost 25% of cell is clickable for dropdown */
-  min-width: 30px;  /* But never smaller than 30px on tiny screens */
-  max-width: 60px;  /* And never larger than 60px on huge screens */
-  background: transparent;
-  cursor: pointer;
-  z-index: 3;  /* Above everything else in the cell */
-  pointer-events: auto;  /* Ensure it catches clicks */
-}
-
-/* Optional: Subtle hover effect to show the clickable area */
-.handsontable td.htAutocomplete:hover::after,
-.handsontable td.htDropdown:hover::after {
-  background: rgba(217, 158, 1, 0.05);  /* Very subtle yellow tint on hover */
-}
-
-/* Subtle cell highlight when hovering over dropdown area */
-.handsontable td.htAutocomplete:hover,
-.handsontable td.htDropdown:hover {
-  background-color: #1a1a1a !important;
-}
-
-/* Ensure the arrow icon itself is always clickable */
-.handsontable td.htAutocomplete .htAutocompleteArrow,
-.handsontable td.htDropdown .htExpandButton {
+  z-index: 3 !important;
   pointer-events: auto !important;
   cursor: pointer !important;
+}
+
+/* CRITICAL: Expand clickable area to ENTIRE CELL */
+.handsontable td.htAutocomplete .htAutocompleteArrow::before,
+.handsontable td.htDropdown .htExpandButton::before {
+  content: '';
+  position: absolute;
+  top: -1000%;      /* Cover entire cell height */
+  right: -1000%;    /* Cover entire cell width */
+  bottom: -1000%;   /* Cover entire cell height */
+  left: -1000%;     /* Cover entire cell width */
+  background: transparent;
+  cursor: pointer;
+  z-index: 5 !important;  /* ABOVE cell content */
+  pointer-events: auto !important;
+}
+
+/* CRITICAL: Error icons stay VISIBLE on top */
+.quantity-error-cell::after,
+.low-similarity-cell::after,
+.needs-review-cell::after {
+  z-index: 10 !important;  /* HIGHEST - Always visible above button */
+  pointer-events: none !important;  /* Not clickable, just visual */
+}
+
+/* Optional: Hover effect */
+.handsontable td.htAutocomplete:hover .htAutocompleteArrow,
+.handsontable td.htDropdown:hover .htExpandButton {
+  opacity: 1 !important;
 }
 
 
