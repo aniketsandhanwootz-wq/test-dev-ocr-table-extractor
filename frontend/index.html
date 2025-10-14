@@ -1132,6 +1132,59 @@
             cursor: pointer;
             font-size: 12px;
         }
+/* —— Centered overlay for instructions hover —— */
+#instr-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: none;           /* toggled via JS */
+  z-index: 2000;
+}
+
+#instr-modal-card {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%,-50%);
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 8px;
+  width: min(90vw, 900px);
+  max-height: 85vh;
+  padding: 12px 12px 16px 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.45);
+}
+
+#instr-modal-close {
+  position: absolute;
+  right: 8px;
+  top: 6px;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+#instr-modal-close:hover { opacity: 1; }
+
+#instr-modal-body {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: calc(85vh - 48px);
+  overflow: auto;          /* allow scroll if content grows */
+  border-radius: 4px;
+}
+
+/* Default image styling for the template content (safe to remove if you switch content) */
+#instr-modal-body img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
 
         /* --------------------- Responsive Behavior --------------------- */
         @media (max-width: 960px) {
@@ -1408,6 +1461,8 @@ function isDuplicateChildpartSelection(value, rowIndex) {
             // Always initialize Handsontable
             console.log("🎨 Initializing Handsontable...");
             initializeHandsontable();
+// Ensure default instructions are visible on startup
+showDefaultInstructions();
         });
 
         // Sequential character matching + best‐match utility
@@ -2953,6 +3008,103 @@ function isDuplicateChildpartSelection(value, rowIndex) {
         function hideNotification() {
             document.getElementById('notification-area').className = 'notification-hidden';
         }
+// --- Default instructions text (single source of truth) ---
+const DEFAULT_INSTRUCTIONS = 'Type or Upload Column screenshots (≤10 rows) in header';
+
+// Show the default instructions banner (no auto-hide)
+function showDefaultInstructions() {
+  showNotification(DEFAULT_INSTRUCTIONS, 'instructions', 0);
+}
+
+// Helper: is any banner currently visible?
+function isBannerVisible() {
+  const area = document.getElementById('notification-area');
+  return area && !area.classList.contains('notification-hidden');
+}
+// ——— Hover-to-modal when instructions banner is visible ———
+let instrHoverTimer = null;
+let instrAutoCloseTimer = null;
+
+// load default content from the <template>
+function ensureInstrModalContent() {
+  const body = document.getElementById('instr-modal-body');
+  if (!body) return;
+  if (body.childElementCount === 0) {
+    const tpl = document.getElementById('instr-modal-default');
+    if (tpl && tpl.content) {
+      body.appendChild(tpl.content.cloneNode(true));
+    }
+  }
+}
+
+function openInstrModal() {
+  ensureInstrModalContent();
+  const backdrop = document.getElementById('instr-modal-backdrop');
+  if (!backdrop) return;
+  backdrop.style.display = 'block';
+
+  // Auto close after 5s by default
+  clearTimeout(instrAutoCloseTimer);
+  instrAutoCloseTimer = setTimeout(closeInstrModal, 5000);
+}
+
+function closeInstrModal() {
+  const backdrop = document.getElementById('instr-modal-backdrop');
+  if (!backdrop) return;
+  backdrop.style.display = 'none';
+}
+
+function attachInstructionHover() {
+  const area = document.getElementById('notification-area');
+  if (!area) return;
+
+  // Remove any previous listeners to avoid duplication
+  area.removeEventListener('mouseenter', onInstrEnter);
+  area.removeEventListener('mouseleave', onInstrLeave);
+
+  area.addEventListener('mouseenter', onInstrEnter);
+  area.addEventListener('mouseleave', onInstrLeave);
+}
+
+function onInstrEnter() {
+  const area = document.getElementById('notification-area');
+  if (!area) return;
+  // Only respond when the banner is the instructions banner
+  if (!area.classList.contains('notification-instructions')) return;
+
+  clearTimeout(instrHoverTimer);
+  instrHoverTimer = setTimeout(() => {
+    // Re-check we are still on instructions at the end of the 5s
+    if (area.classList.contains('notification-instructions')) {
+      openInstrModal();
+    }
+  }, 5000); // 5s hover
+}
+
+function onInstrLeave() {
+  clearTimeout(instrHoverTimer);
+}
+
+// Close button + click outside to close
+document.addEventListener('DOMContentLoaded', () => {
+  const closeBtn = document.getElementById('instr-modal-close');
+  const backdrop = document.getElementById('instr-modal-backdrop');
+  if (closeBtn) closeBtn.addEventListener('click', closeInstrModal);
+  if (backdrop) {
+    backdrop.addEventListener('click', (e) => {
+      if (e.target.id === 'instr-modal-backdrop') closeInstrModal();
+    });
+  }
+  attachInstructionHover();
+});
+
+// Re-attach after any banner change
+const _origShowNotification = showNotification;
+showNotification = function(message, type='success', duration=5000) {
+  _origShowNotification(message, type, duration);
+  attachInstructionHover();
+};
+
 
         // Toggle instructions (just calls showNotification)
         function toggleInstructions() {
@@ -3044,14 +3196,15 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                 
                 console.log(`📢 Notification shown: ${highestPriorityNotification.message} (Priority ${highestPriorityNotification.priority})`);
             } else {
-                console.log(`✅ No errors found - notifications cleared`);
-                // Only hide notification if no errors found AND not showing success
-                const area = document.getElementById('notification-area');
-                if (area && area.classList.contains('notification-success')) {
-                    return; // let showNotification's own success timer hide it
-                }
-                hideNotification();
-            }
+  console.log(`✅ No errors found`);
+  const area = document.getElementById('notification-area');
+
+  // If a SUCCESS is showing, leave it (it will auto-hide)
+  if (area && area.classList.contains('notification-success')) return;
+
+  // Otherwise keep our default instructions visible
+  showDefaultInstructions();
+}
         }
 
         function validateRequiredFields() {
@@ -3354,6 +3507,22 @@ function isDuplicateChildpartSelection(value, rowIndex) {
         lucide.createIcons();
 
     </script>
+<!-- Default content template (easy to replace later) -->
+<template id="instr-modal-default">
+  <figure style="margin:0">
+    <img src="sample-screenshot.png" alt="Good vs Bad screenshot guide" />
+    <!-- You can add captions, bullets, or more elements here later -->
+    <!-- <figcaption style="color:#aaa;margin-top:8px">Tips for best results...</figcaption> -->
+  </figure>
+</template>
+
+<!-- Reusable modal with a content slot -->
+<div id="instr-modal-backdrop" aria-hidden="true">
+  <div id="instr-modal-card" role="dialog" aria-modal="true" aria-labelledby="instr-modal-title">
+    <button id="instr-modal-close" aria-label="Close">×</button>
+    <div id="instr-modal-body"></div>
+  </div>
+</div>
 
 </body>
 
