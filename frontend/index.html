@@ -2906,10 +2906,10 @@ showDefaultInstructions();
             if (!e.target.closest("#help-icon")) {
                 document.getElementById("help-popover").style.display = "none";
                 // Only hide instructions, not error/success notifications
-                const area = document.getElementById('notification-area');
-                if (area.className === 'notification-instructions') {
-                    hideNotification();
-                }
+       //         const area = document.getElementById('notification-area');
+         //       if (area.className === 'notification-instructions') {
+           //         hideNotification();
+             //   }
             }
         });
 
@@ -3110,7 +3110,7 @@ showNotification = function(message, type='success', duration=5000) {
         function toggleInstructions() {
             const area = document.getElementById('notification-area');
             if (area.className === 'notification-instructions') {
-                clearNotification();
+                hideNotification(); 
             } else {
                 showNotification('Type or Upload Column screenshots (≤10 rows) in header', 'instructions', 0);
             }
