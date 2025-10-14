@@ -1075,12 +1075,12 @@
         }
 
         /* Error styling for Quantity cells with invalid (non-integer) values */
-        /* .quantity-error-cell {
-            position: relative; */
+        .quantity-error-cell {
+            position: relative;
         }
 
         /* Red warning icon */
-        /* .quantity-error-cell::after {
+        .quantity-error-cell::after {
             content: "!";
             position: absolute;
             top: 2px;
@@ -1089,7 +1089,7 @@
             font-weight: bolder;
             z-index: 10;
             pointer-events: none;
-            color: #fb0202; */
+            color: #fb0202;
             /* <-- RED color for the icon */
         }
 
@@ -1149,70 +1149,6 @@
                 width: 100%;
             }
         }
-
-/* Make dropdown cells a positioning/isolation context */
-.handsontable td.htAutocomplete,
-.handsontable td.htDropdown {
-  position: relative !important;
-  isolation: isolate;                 /* contain z-index inside the cell */
-  cursor: pointer !important;
-}
-
-/* Full-cell clickable hit-area (the arrow element fills the TD) */
-.handsontable td.htAutocomplete .htAutocompleteArrow,
-.handsontable td.htDropdown .htExpandButton {
-  position: absolute !important;
-  inset: 0 !important;                /* fill whole cell */
-  background: transparent !important;
-  margin: 0 !important;
-  width: auto !important;
-  height: auto !important;
-  z-index: 1 !important;              /* BELOW warning icons */
-  pointer-events: auto !important;
-  cursor: pointer !important;
-}
-
-/* Draw a visible chevron inside the big hit-area */
-.handsontable td.htAutocomplete .htAutocompleteArrow::after,
-.handsontable td.htDropdown .htExpandButton::after {
-  content: "▾";
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 12px;
-  line-height: 1;
-  pointer-events: none;               /* don't steal clicks */
-  opacity: 0.85;
-}
-
-/* Error styling — keep the icon above the hit-area */
-.quantity-error-cell { 
-  position: relative; 
-  z-index: 2;                         /* sit above z-index:1 hit-area */
-}
-.quantity-error-cell::after {
-  content: "!";
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  font-size: 18px;
-  font-weight: bolder;
-  z-index: 3;                         /* above the hit-area (1) */
-  pointer-events: none;
-  color: #fb0202;
-}
-
-/* Optional hover */
-.handsontable td.htAutocomplete:hover,
-.handsontable td.htDropdown:hover {
-  background-color: #1a1a1a !important;
-}
-  
-
-
-
-        
     </style>
 </head>
 
@@ -2214,6 +2150,35 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                                 }
                             });
                     }, 0);
+                },
+                afterOnCellMouseDown: function (event, coords, TD) {
+                  if (coords.row < 0 || coords.col < 0) return;      // ignore headers/spares
+                  const prop = this.colToProp(coords.col);
+                  if (prop !== 'Type' && prop !== 'Matched Childpart') return;
+                
+                  if (typeof hideSmartOverlay === 'function') hideSmartOverlay();
+                  
+                  // ✅ FIX: Get current value BEFORE starting edit
+                  const currentValue = this.getDataAtCell(coords.row, coords.col) || '';  
+                
+                  // If an editor is already open on this cell, do nothing (prevents flicker)
+                  const active = this.getActiveEditor?.();
+                  if (active && active.isOpened && active.isOpened()) return;
+                    
+                  // Select the cell and start editing with preserved value
+                  this.selectCell(coords.row, coords.col);
+                    
+                  // Let Handsontable select the cell first, then start editing so the list opens on single click
+                  requestAnimationFrame(() => {
+                    const editor = this.getActiveEditor?.();
+                    if (!editor) return;
+                
+                    // Seed with empty string → your source() will return the full list
+                    if (typeof editor.beginEditing === 'function') editor.beginEditing(currentValue);
+                
+                    // For HOT 12, Autocomplete/Dropdown editors expose open()
+                    if (typeof editor.open === 'function') editor.open();
+                  });
                 },
             });            
 
