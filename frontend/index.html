@@ -1852,16 +1852,16 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                           const partText = (rowData["PartNumber"]?.text) || "";
                           spreadsheetData[currentRow]["_similarityScore"] =
                             partText ? sequentialCharacterMatch(partText, val) : 0;
-                        
-                          // ⬇️ Render right now so the red "!" appears immediately
-                          hotInstance.render();
-                          requestNotificationRefreshOnce();
-                          showNotification(`"${val}" is not a valid child part.`, 'error');
-                        
-                          callback(true);
+                    
+                          setTimeout(() => {
+                            showNotification(`"${val}" is not a valid child part.`, 'error');
+                            requestNotificationRefreshOnce();
+                            hotInstance.render();   // ← use the local instance
+                          }, 10);
+                    
+                          callback(true); // keep invalid value but flagged
                           return;
                         }
-
                     
                         // Duplicate → notify but don’t reject
                         if (isDuplicateChildpartSelection(val, currentRow)) {
@@ -2151,46 +2151,36 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                             });
                     }, 0);
                 },
-                hot.addHook('afterOnCellMouseDown', function (event, coords) {
-                  if (coords.row < 0 || coords.col < 0) return;
-                
+                afterOnCellMouseDown: function (event, coords, TD) {
+                  if (coords.row < 0 || coords.col < 0) return;      // ignore headers/spares
                   const prop = this.colToProp(coords.col);
-                  if (prop !== 'Matched Childpart' && prop !== 'Type') return;
+                  if (prop !== 'Type' && prop !== 'Matched Childpart') return;
                 
-                  // keep existing value instead of clearing
-                  const currentValue = this.getDataAtCell(coords.row, coords.col) ?? '';
+                  if (typeof hideSmartOverlay === 'function') hideSmartOverlay();
+                  
+                  // ✅ FIX: Get current value BEFORE starting edit
+                  const currentValue = this.getDataAtCell(coords.row, coords.col) || '';  
                 
-                  // if an editor is already open here, do nothing
+                  // If an editor is already open on this cell, do nothing (prevents flicker)
                   const active = this.getActiveEditor?.();
                   if (active && active.isOpened && active.isOpened()) return;
-                
-                  // select + begin editing with existing value
+                    
+                  // Select the cell and start editing with preserved value
                   this.selectCell(coords.row, coords.col);
-                
+                    
+                  // Let Handsontable select the cell first, then start editing so the list opens on single click
                   requestAnimationFrame(() => {
                     const editor = this.getActiveEditor?.();
                     if (!editor) return;
                 
-                    // preserve current value in the editor input
+                    // Seed with empty string → your source() will return the full list
                     if (typeof editor.beginEditing === 'function') editor.beginEditing(currentValue);
                 
-                    if (prop === 'Matched Childpart') {
-                      // show the autocomplete list without clearing the text
-                      const inputEl = editor.TEXTAREA;
-                      if (inputEl && inputEl.dispatchEvent) {
-                        inputEl.dispatchEvent(new KeyboardEvent('keydown', {
-                          key: 'ArrowDown', code: 'ArrowDown', keyCode: 40, which: 40, bubbles: true
-                        }));
-                      }
-                    } else if (prop === 'Type') {
-                      // dropdown editor can open directly
-                      if (typeof editor.open === 'function') editor.open();
-                    }
+                    // For HOT 12, Autocomplete/Dropdown editors expose open()
+                    if (typeof editor.open === 'function') editor.open();
                   });
-                
-                  // stop HT's default mousedown from doing a blank edit
-                  event.stopPropagation();
-                });          
+                },
+            });            
 
             // --- Unified afterChange handler: edit, cut, paste -----------------------------------------------
             hot.addHook('afterChange', (changes, source) => {
