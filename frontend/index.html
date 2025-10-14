@@ -412,7 +412,7 @@
 
         /* Table cells - with textwrap functionality */
         .handsontable td {
-            background-color: #0a0a0a;
+            background-color: #0a0a0a !important;
             color: #ffffff !important;
             border-color: #222222 !important;
 
@@ -2157,18 +2157,24 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                   if (prop !== 'Type' && prop !== 'Matched Childpart') return;
                 
                   if (typeof hideSmartOverlay === 'function') hideSmartOverlay();
+                  
+                  // ✅ FIX: Get current value BEFORE starting edit
+                  const currentValue = this.getDataAtCell(coords.row, coords.col) || '';  
                 
                   // If an editor is already open on this cell, do nothing (prevents flicker)
                   const active = this.getActiveEditor?.();
                   if (active && active.isOpened && active.isOpened()) return;
-                
+                    
+                  // Select the cell and start editing with preserved value
+                  this.selectCell(coords.row, coords.col);
+                    
                   // Let Handsontable select the cell first, then start editing so the list opens on single click
                   requestAnimationFrame(() => {
                     const editor = this.getActiveEditor?.();
                     if (!editor) return;
                 
                     // Seed with empty string → your source() will return the full list
-                    if (typeof editor.beginEditing === 'function') editor.beginEditing();
+                    if (typeof editor.beginEditing === 'function') editor.beginEditing(currentValue);
                 
                     // For HOT 12, Autocomplete/Dropdown editors expose open()
                     if (typeof editor.open === 'function') editor.open();
