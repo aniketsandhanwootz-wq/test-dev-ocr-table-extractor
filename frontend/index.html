@@ -2180,7 +2180,23 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                     if (typeof editor.open === 'function') editor.open();
                   });
                 },
-            });            
+            });
+            // --- keep current value when opening Type / Matched Childpart editors
+            hot.addHook('afterBeginEditing', function (row, col) {
+              const prop = this.colToProp(col);
+              if (prop !== 'Type' && prop !== 'Matched Childpart') return;
+            
+              const editor = this.getActiveEditor?.();
+              const current = (this.getDataAtCell(row, col) || '').toString();
+            
+              // defer 1 frame so the editor DOM is mounted, then restore the text & caret
+              requestAnimationFrame(() => {
+                if (editor && editor.TEXTAREA) {
+                  editor.TEXTAREA.value = current;
+                  editor.TEXTAREA.selectionStart = editor.TEXTAREA.selectionEnd = editor.TEXTAREA.value.length;
+                }
+              });
+            });
 
             // --- Unified afterChange handler: edit, cut, paste -----------------------------------------------
             hot.addHook('afterChange', (changes, source) => {
