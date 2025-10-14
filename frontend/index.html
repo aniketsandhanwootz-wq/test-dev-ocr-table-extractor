@@ -2169,16 +2169,34 @@ function isDuplicateChildpartSelection(value, rowIndex) {
                   this.selectCell(coords.row, coords.col);
                     
                   // Let Handsontable select the cell first, then start editing so the list opens on single click
-                  requestAnimationFrame(() => {
-                    const editor = this.getActiveEditor?.();
-                    if (!editor) return;
+                requestAnimationFrame(() => {
+                  const editor = this.getActiveEditor?.();
+                  if (!editor) return;
                 
-                    // Seed with empty string → your source() will return the full list
-                    if (typeof editor.beginEditing === 'function') editor.beginEditing(currentValue);
+                  // Always preserve whatever is already in the cell
+                  if (typeof editor.beginEditing === 'function') editor.beginEditing(currentValue);
                 
-                    // For HOT 12, Autocomplete/Dropdown editors expose open()
+                  const propName = this.colToProp(coords.col);
+                
+                  if (propName === 'Matched Childpart') {
+                    // Autocomplete: DO NOT call open() (it clears the input).
+                    // Instead, simulate ArrowDown to show the list while keeping the value.
+                    const inputEl = editor.TEXTAREA;
+                    if (inputEl && inputEl.dispatchEvent) {
+                      inputEl.dispatchEvent(new KeyboardEvent('keydown', {
+                        key: 'ArrowDown',
+                        code: 'ArrowDown',
+                        keyCode: 40,
+                        which: 40,
+                        bubbles: true
+                      }));
+                    }
+                  } else if (propName === 'Type') {
+                    // Dropdown editor is safe to open directly
                     if (typeof editor.open === 'function') editor.open();
-                  });
+                  }
+                });
+
                 },
             });            
 
