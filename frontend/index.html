@@ -1046,12 +1046,13 @@
         }
 
         /* Low similarity warning for dropdown cells */
-        /* Low similarity warning for dropdown cells — icon only, no background */
+        /* Low similarity warning for dropdown cells — icon only, preserve bg */
         .low-similarity-cell {
             position: relative;
-            background-color: transparent !important;  /* remove fill */
-            border: none !important;                   /* remove yellow border */
+            background-color: inherit !important;  /* ← keep the table’s bg (#0a0a0a or .current highlight) */
+            border: none !important;               /* no yellow border */
         }
+
 
 
         /* Warning icon for low similarity cells */
