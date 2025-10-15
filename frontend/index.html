@@ -2337,7 +2337,7 @@ showDefaultInstructions();
                 }
 
                 // ===== 3. STANDARD EDIT branch =================================
-                const shouldValidate = (source === 'edit' || source === 'Autofill.fill');
+                const shouldValidate = (source === 'edit' || source === 'CopyPaste.paste' || source === 'Autofill.fill');
                 if (shouldValidate) {
                     changes.forEach(([row, prop, oldVal, newVal]) => {
                         if (oldVal === newVal) return;
@@ -2347,32 +2347,53 @@ showDefaultInstructions();
                         hot.setCellMeta(row, colIndex, 'className', 'edited-cell');
 
                         // OCR columns: zero confidence & force default bg
+                        // OCR columns: zero confidence & force default bg
                         if (['Quantity.text', 'Description.text', 'Material.text'].includes(prop)) {
-                            spreadsheetData[row][prop.split('.')[0]].confidence = 0;
-                            // --- Begin new logic for className to preserve quantity-error-cell ---
-                            // Get existing classes
-                            let existingClasses = hot.getCellMeta(row, colIndex).className || "";
-                            let classes = new Set(existingClasses.split(/\s+/).filter(Boolean));
-
-                            // Add edited markers
-                            classes.add('edited-cell');
-                            classes.add('user-edited-ocr');
-
-                            // Preserve quantity-error-cell if still invalid
+                          const colKey = prop.split('.')[0];
+                          const colIndex = hot.propToCol(prop);
+                    
+                          // ✅ Cut→Paste guard:
+                          // If this change came from a paste AND the cell has non-zero confidence right now,
+                          // it means your PASTE block just restored OCR confidence. Don’t zero it or flag as user-edited.
+                          const keepPastedConfidence = (source === 'CopyPaste.paste') &&
+                                                       ((spreadsheetData[row]?.[colKey]?.confidence ?? 0) > 0);
+                    
+                          if (keepPastedConfidence) {
+                            // Keep only the quantity error icon in sync; leave other classes and bg as-is
                             if (prop === 'Quantity.text') {
-                                const textValue = spreadsheetData[row].Quantity?.text?.trim();
-                                const isInvalid = textValue && !/^\d+$/.test(textValue);
-                                if (isInvalid) {
-                                    classes.add('quantity-error-cell');
-                                } else {
-                                    classes.delete('quantity-error-cell');
-                                }
+                              const textValue = spreadsheetData[row].Quantity?.text?.trim();
+                              const isInvalid = textValue && !/^\d+$/.test(textValue);
+                              let existing = hot.getCellMeta(row, colIndex).className || '';
+                              let classes = new Set(existing.split(/\s+/).filter(Boolean));
+                              if (isInvalid) classes.add('quantity-error-cell'); else classes.delete('quantity-error-cell');
+                              hot.setCellMeta(row, colIndex, 'className', Array.from(classes).join(' '));
                             }
-
-                            hot.setCellMeta(row, colIndex, 'className', Array.from(classes).join(' '));
-                            // --- End new logic ---
-                            console.log(`🔧 User edited OCR cell: Row ${row}, Column ${prop}`);
+                            return; // ⬅️ skip zeroing & 'user-edited-ocr' for this pasted OCR cell
+                          }
+                    
+                          // 🔁 Normal manual edit / copy→paste path (previous behavior)
+                          spreadsheetData[row][colKey].confidence = 0;
+                    
+                          // --- Begin existing className logic (unchanged) ---
+                          let existingClasses = hot.getCellMeta(row, colIndex).className || "";
+                          let classes = new Set(existingClasses.split(/\s+/).filter(Boolean));
+                    
+                          // Add edited markers
+                          classes.add('edited-cell');
+                          classes.add('user-edited-ocr');
+                    
+                          // Preserve quantity-error-cell if still invalid
+                          if (prop === 'Quantity.text') {
+                            const textValue = spreadsheetData[row].Quantity?.text?.trim();
+                            const isInvalid = textValue && !/^\d+$/.test(textValue);
+                            if (isInvalid) { classes.add('quantity-error-cell'); } else { classes.delete('quantity-error-cell'); }
+                          }
+                          hot.setCellMeta(row, colIndex, 'className', Array.from(classes).join(' '));
+                          // --- End existing logic ---
+                          console.log(`🔧 User edited OCR cell: Row ${row}, Column ${prop}`);
                         }
+
+                        
                         // Childpart validation against Type (ENHANCED - Order Independent)
                         if (prop === 'Matched Childpart') {
                             const rowData = hot.getSourceDataAtRow(row);
