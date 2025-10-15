@@ -1137,7 +1137,7 @@
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.6);
-  display: none;           /* toggled via JS */
+  display: none;           /* Hidden by CSS - aria-hidden managed by JS */
   z-index: 2000;
 }
 
@@ -3093,9 +3093,9 @@ function openInstrModal() {
 
   if (!backdrop) return;
 
-  // show + expose to assistive tech
-  backdrop.style.display = 'block';
+  // ✅ Set aria-hidden FIRST, then display
   backdrop.setAttribute('aria-hidden', 'false');
+  backdrop.style.display = 'block';
   instrIsOpen = true;
 
   // remember prior focus and move focus into the dialog
@@ -3138,9 +3138,9 @@ function closeInstrModal(manual = false) {
   const backdrop = document.getElementById('instr-modal-backdrop');
   if (!backdrop) return;
 
-  // hide + re-hide from assistive tech
+  // ✅ Set display=none first, then aria-hidden (optional - redundant when hidden)
   backdrop.style.display = 'none';
-  backdrop.setAttribute('aria-hidden', 'true');
+  // backdrop.setAttribute('aria-hidden', 'true'); // ← Optional: remove this line
   instrIsOpen = false;
 
   // restore background scroll
@@ -3624,7 +3624,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </template>
 
 <!-- Reusable modal with a content slot -->
-<div id="instr-modal-backdrop" aria-hidden="true">
+<div id="instr-modal-backdrop">
   <div id="instr-modal-card" role="dialog" aria-modal="true" aria-labelledby="instr-modal-title">
     <button id="instr-modal-close" aria-label="Close">×</button>
     <div id="instr-modal-body"></div>
