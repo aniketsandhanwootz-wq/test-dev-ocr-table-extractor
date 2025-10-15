@@ -2337,7 +2337,7 @@ showDefaultInstructions();
                 }
 
                 // ===== 3. STANDARD EDIT branch =================================
-                const shouldValidate = (source === 'edit' || source === 'CopyPaste.paste' || source === 'Autofill.fill');
+                const shouldValidate = (source === 'edit' || source === 'Autofill.fill');
                 if (shouldValidate) {
                     changes.forEach(([row, prop, oldVal, newVal]) => {
                         if (oldVal === newVal) return;
