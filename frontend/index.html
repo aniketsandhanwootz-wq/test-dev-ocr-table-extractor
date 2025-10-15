@@ -1350,7 +1350,6 @@ let columnsList = [];
 let hot;
 let windowChildParts = []; // expose on window for debugging
 let _cutBackup = [];
-let _pastedWithConfidence = new Set(); // row|prop markers for same-tick paste
 let hasWarningNotificationShown = false;
 let isAppendMode = false; // Track append mode state
 let lastOcrBomItem = 0;
@@ -2311,10 +2310,6 @@ showDefaultInstructions();
 
                 // ===== 2. PASTE: restore confidences to new cells ===========
                 if (source === 'CopyPaste.paste') {
-                    // remember that this cell carried confidence in this paste
-                    if (restored > 0) {
-                      _pastedWithConfidence.add(`${row}|${prop}`); // e.g. "12|Quantity.text"
-                    }
                     console.log('[CopyPaste.paste] applying backup:', _cutBackup);
                     const isCutPaste = _cutBackup.length === changes.length;
                     changes.forEach(([row, prop], idx) => {
@@ -2352,49 +2347,31 @@ showDefaultInstructions();
                         hot.setCellMeta(row, colIndex, 'className', 'edited-cell');
 
                         // OCR columns: zero confidence & force default bg
-                        // OCR columns: zero confidence & force default bg
                         if (['Quantity.text', 'Description.text', 'Material.text'].includes(prop)) {
-                          const marker = `${row}|${prop}`;
-                          const pastedWithConf = (source === 'CopyPaste.paste') && _pastedWithConfidence.has(marker);
-                          const colIndex = hot.propToCol(prop);
-                    
-                          // If this was a cut→paste that already restored confidence, DO NOT zero it or mark as user-edited.
-                          if (pastedWithConf) {
-                            // Keep quantity error state up-to-date but leave other classes alone
+                            spreadsheetData[row][prop.split('.')[0]].confidence = 0;
+                            // --- Begin new logic for className to preserve quantity-error-cell ---
+                            // Get existing classes
+                            let existingClasses = hot.getCellMeta(row, colIndex).className || "";
+                            let classes = new Set(existingClasses.split(/\s+/).filter(Boolean));
+
+                            // Add edited markers
+                            classes.add('edited-cell');
+                            classes.add('user-edited-ocr');
+
+                            // Preserve quantity-error-cell if still invalid
                             if (prop === 'Quantity.text') {
-                              const textValue = spreadsheetData[row].Quantity?.text?.trim();
-                              const isInvalid = textValue && !/^\d+$/.test(textValue);
-                              let existing = (hot.getCellMeta(row, colIndex).className || '');
-                              let classes = new Set(existing.split(/\s+/).filter(Boolean));
-                              if (isInvalid) classes.add('quantity-error-cell'); else classes.delete('quantity-error-cell');
-                              hot.setCellMeta(row, colIndex, 'className', Array.from(classes).join(' '));
+                                const textValue = spreadsheetData[row].Quantity?.text?.trim();
+                                const isInvalid = textValue && !/^\d+$/.test(textValue);
+                                if (isInvalid) {
+                                    classes.add('quantity-error-cell');
+                                } else {
+                                    classes.delete('quantity-error-cell');
+                                }
                             }
-                            // Do NOT change confidence or add 'user-edited-ocr' here
-                            return; // ← skip the rest of the user-edit logic for this cell
-                          }
-                    
-                          // Normal manual edit path (previous behavior)
-                          spreadsheetData[row][prop.split('.')[0]].confidence = 0;
-                    
-                          // --- Begin new logic for className to preserve quantity-error-cell ---
-                          // Get existing classes
-                          let existingClasses = hot.getCellMeta(row, colIndex).className || "";
-                          let classes = new Set(existingClasses.split(/\s+/).filter(Boolean));
-                    
-                          // Add edited markers
-                          classes.add('edited-cell');
-                          classes.add('user-edited-ocr');
-                    
-                          // Preserve quantity-error-cell if still invalid
-                          if (prop === 'Quantity.text') {
-                            const textValue = spreadsheetData[row].Quantity?.text?.trim();
-                            const isInvalid = textValue && !/^\d+$/.test(textValue);
-                            if (isInvalid) classes.add('quantity-error-cell'); else classes.delete('quantity-error-cell');
-                          }
-                    
-                          hot.setCellMeta(row, colIndex, 'className', Array.from(classes).join(' '));
-                          // --- End new logic ---
-                          console.log(`🔧 User edited OCR cell: Row ${row}, Column ${prop}`);
+
+                            hot.setCellMeta(row, colIndex, 'className', Array.from(classes).join(' '));
+                            // --- End new logic ---
+                            console.log(`🔧 User edited OCR cell: Row ${row}, Column ${prop}`);
                         }
                         // Childpart validation against Type (ENHANCED - Order Independent)
                         if (prop === 'Matched Childpart') {
@@ -2602,9 +2579,7 @@ showDefaultInstructions();
                                                 }
                                             });  // ← Close changes.forEach
                                         }        // ← Close if (source === 'edit')
-                                 // clear paste markers for next tick
-_pastedWithConfidence.clear();   
-            });          // ← Close hot.addHook('afterChange')
+                                    });          // ← Close hot.addHook('afterChange')
                                 }  // ← Close renderSpreadsheet function
         // ─────────────────────────────────────────────────────────────────────
         // addColumn: used by OCR processing to inject a new column's OCR data
