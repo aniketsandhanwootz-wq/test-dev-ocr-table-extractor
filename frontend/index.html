@@ -3062,88 +3062,102 @@ function isBannerVisible() {
   return area && !area.classList.contains('notification-hidden');
 }
 // ——— Hover-to-modal when instructions banner is visible ———
-let instrHoverTimer = null;
-let instrAutoCloseTimer = null;
+// single-source timing
+const INSTR_AUTOCLOSE_MS = 15000; // 10s
 
-// load default content from the <template>
+let instrAutoCloseTimer = null;
+let instrIsOpen = false;         // modal currently open?
+let instrHoverArmed = false;     // hover session armed (prevents re-run while pointer stays)
+let instrManualClose = false;    // user closed during current hover session
+
 function ensureInstrModalContent() {
   const body = document.getElementById('instr-modal-body');
   if (!body) return;
   if (body.childElementCount === 0) {
     const tpl = document.getElementById('instr-modal-default');
-    if (tpl && tpl.content) {
-      body.appendChild(tpl.content.cloneNode(true));
-    }
+    if (tpl && tpl.content) body.appendChild(tpl.content.cloneNode(true));
   }
 }
 
 function openInstrModal() {
+  // don't re-open if:
+  // 1) already open OR
+  // 2) user manually closed during this same hover session
+  if (instrIsOpen || (instrHoverArmed && instrManualClose)) return;
+
   ensureInstrModalContent();
   const backdrop = document.getElementById('instr-modal-backdrop');
   if (!backdrop) return;
-  backdrop.style.display = 'block';
 
-  // Auto close after 10s by default
+  backdrop.style.display = 'block';
+  instrIsOpen = true;
+
   clearTimeout(instrAutoCloseTimer);
-  instrAutoCloseTimer = setTimeout(closeInstrModal, 15000);
+  instrAutoCloseTimer = setTimeout(() => {
+    closeInstrModal(false); // auto close
+  }, INSTR_AUTOCLOSE_MS);
 }
 
-function closeInstrModal() {
+function closeInstrModal(manual = false) {
   const backdrop = document.getElementById('instr-modal-backdrop');
   if (!backdrop) return;
+
   backdrop.style.display = 'none';
+  instrIsOpen = false;
+
+  if (manual) {
+    // mark that user closed it during this hover; don't reopen until mouse leaves
+    instrManualClose = true;
+  }
+}
+
+function onInstrEnter() {
+  const area = document.getElementById('notification-area');
+  if (!area) return;
+  if (!area.classList.contains('notification-instructions')) return;
+
+  // start a new hover session only once
+  if (instrHoverArmed) return;
+  instrHoverArmed = true;
+  instrManualClose = false; // reset for this session
+
+  // show immediately on hover
+  openInstrModal();
+}
+
+function onInstrLeave() {
+  clearTimeout(instrAutoCloseTimer);
+  // optional: close immediately on mouse leave
+  if (instrIsOpen) closeInstrModal(false);
+
+  // end of hover session → allow future re-open
+  instrHoverArmed = false;
+  instrManualClose = false;
 }
 
 function attachInstructionHover() {
   const area = document.getElementById('notification-area');
   if (!area) return;
 
-  // Remove any previous listeners to avoid duplication
   area.removeEventListener('mouseenter', onInstrEnter);
   area.removeEventListener('mouseleave', onInstrLeave);
-
   area.addEventListener('mouseenter', onInstrEnter);
   area.addEventListener('mouseleave', onInstrLeave);
 }
 
-function onInstrEnter() {
-  const area = document.getElementById('notification-area');
-  if (!area) return;
-  // Only respond when the banner is the instructions banner
-  if (!area.classList.contains('notification-instructions')) return;
-
-  clearTimeout(instrHoverTimer);
-  instrHoverTimer = setTimeout(() => {
-    // Re-check we are still on instructions at the end of the 5s
-    if (area.classList.contains('notification-instructions')) {
-      openInstrModal();
-    }
-  }, 300); // 5s hover
-}
-
-function onInstrLeave() {
-  clearTimeout(instrHoverTimer);
-}
-
-// Close button + click outside to close
+// Close button + click-outside
 document.addEventListener('DOMContentLoaded', () => {
   const closeBtn = document.getElementById('instr-modal-close');
   const backdrop = document.getElementById('instr-modal-backdrop');
-  if (closeBtn) closeBtn.addEventListener('click', closeInstrModal);
+  if (closeBtn) closeBtn.addEventListener('click', () => closeInstrModal(true));
   if (backdrop) {
     backdrop.addEventListener('click', (e) => {
-      if (e.target.id === 'instr-modal-backdrop') closeInstrModal();
+      if (e.target.id === 'instr-modal-backdrop') closeInstrModal(true);
     });
   }
   attachInstructionHover();
 });
 
-// Re-attach after any banner change
-// const _origShowNotification = showNotification;
-// showNotification = function(message, type='success', duration=10000) {
-//   _origShowNotification(message, type, duration);
-//   attachInstructionHover();
-// };
 
 
         // Toggle instructions (just calls showNotification)
