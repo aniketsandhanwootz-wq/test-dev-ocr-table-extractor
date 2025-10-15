@@ -3071,6 +3071,9 @@ let instrAutoCloseTimer = null;  // auto-close timer
 let instrIsOpen = false;         // modal currently open?
 let instrHoverArmed = false;     // a hover session is active
 let instrManualClose = false;    // user closed during current hover session
+// focus management for the instructions modal
+let instrPrevFocus = null;
+let instrKeyHandler = null;
 
 function ensureInstrModalContent() {
   const body = document.getElementById('instr-modal-body');
@@ -3082,34 +3085,81 @@ function ensureInstrModalContent() {
 }
 
 function openInstrModal() {
-  // don't re-open if already open OR user closed during this hover
   if (instrIsOpen || (instrHoverArmed && instrManualClose)) return;
 
   ensureInstrModalContent();
   const backdrop = document.getElementById('instr-modal-backdrop');
+  const closeBtn = document.getElementById('instr-modal-close');
+
   if (!backdrop) return;
 
+  // show + expose to assistive tech
   backdrop.style.display = 'block';
+  backdrop.setAttribute('aria-hidden', 'false');
   instrIsOpen = true;
 
+  // remember prior focus and move focus into the dialog
+  instrPrevFocus = document.activeElement;
+  setTimeout(() => closeBtn?.focus(), 0);
+
+  // optional: prevent background scroll while open
+  document.body.style.overflow = 'hidden';
+
+  // Escape & simple focus trap
+  instrKeyHandler = (e) => {
+    if (e.key === 'Escape') {
+      closeInstrModal(true);
+      return;
+    }
+    if (e.key === 'Tab') {
+      const card = document.getElementById('instr-modal-card');
+      if (!card) return;
+      const focusables = card.querySelectorAll(
+        'a,button,input,select,textarea,[tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last  = focusables[focusables.length - 1];
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      }
+    }
+  };
+  document.addEventListener('keydown', instrKeyHandler);
+
   clearTimeout(instrAutoCloseTimer);
-  instrAutoCloseTimer = setTimeout(() => {
-    closeInstrModal(false); // auto close
-  }, INSTR_AUTOCLOSE_MS);
+  instrAutoCloseTimer = setTimeout(() => closeInstrModal(false), INSTR_AUTOCLOSE_MS);
 }
 
 function closeInstrModal(manual = false) {
   const backdrop = document.getElementById('instr-modal-backdrop');
   if (!backdrop) return;
 
+  // hide + re-hide from assistive tech
   backdrop.style.display = 'none';
+  backdrop.setAttribute('aria-hidden', 'true');
   instrIsOpen = false;
 
-  if (manual) {
-    // mark that user closed it during this hover; don't reopen until mouse leaves
-    instrManualClose = true;
+  // restore background scroll
+  document.body.style.overflow = '';
+
+  // return focus to the opener for good a11y
+  document.getElementById('header-help-icon')?.focus?.();
+
+  if (manual) instrManualClose = true;
+
+  clearTimeout(instrAutoCloseTimer);
+
+  if (instrKeyHandler) {
+    document.removeEventListener('keydown', instrKeyHandler);
+    instrKeyHandler = null;
   }
 }
+
+
 
 function onInstrEnter() {
   const area = document.getElementById('notification-area');
