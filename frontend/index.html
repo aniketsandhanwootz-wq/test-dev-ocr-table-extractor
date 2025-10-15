@@ -3062,12 +3062,14 @@ function isBannerVisible() {
   return area && !area.classList.contains('notification-hidden');
 }
 // ——— Hover-to-modal when instructions banner is visible ———
-// single-source timing
-const INSTR_AUTOCLOSE_MS = 15000; // 10s
+// timings
+const INSTR_HOVER_OPEN_DELAY_MS = 300;   // wait this long before opening
+const INSTR_AUTOCLOSE_MS        = 15000; // auto-close after this long
 
-let instrAutoCloseTimer = null;
+let instrHoverOpenTimer = null;  // delay timer for opening
+let instrAutoCloseTimer = null;  // auto-close timer
 let instrIsOpen = false;         // modal currently open?
-let instrHoverArmed = false;     // hover session armed (prevents re-run while pointer stays)
+let instrHoverArmed = false;     // a hover session is active
 let instrManualClose = false;    // user closed during current hover session
 
 function ensureInstrModalContent() {
@@ -3080,9 +3082,7 @@ function ensureInstrModalContent() {
 }
 
 function openInstrModal() {
-  // don't re-open if:
-  // 1) already open OR
-  // 2) user manually closed during this same hover session
+  // don't re-open if already open OR user closed during this hover
   if (instrIsOpen || (instrHoverArmed && instrManualClose)) return;
 
   ensureInstrModalContent();
@@ -3116,21 +3116,24 @@ function onInstrEnter() {
   if (!area) return;
   if (!area.classList.contains('notification-instructions')) return;
 
-  // start a new hover session only once
-  if (instrHoverArmed) return;
+  if (instrHoverArmed) return;      // already in a hover session
   instrHoverArmed = true;
-  instrManualClose = false; // reset for this session
+  instrManualClose = false;         // reset for this session
 
-  // show immediately on hover
-  openInstrModal();
+  // start delayed open
+  clearTimeout(instrHoverOpenTimer);
+  instrHoverOpenTimer = setTimeout(() => {
+    openInstrModal();
+  }, INSTR_HOVER_OPEN_DELAY_MS);
 }
 
 function onInstrLeave() {
-  clearTimeout(instrAutoCloseTimer);
-  // optional: close immediately on mouse leave
-  if (instrIsOpen) closeInstrModal(false);
+  // user left before delay elapsed → cancel open
+  clearTimeout(instrHoverOpenTimer);
 
-  // end of hover session → allow future re-open
+  // DO NOT close the modal on mouse leave.
+  // It will close either by the 10s timer or by the user pressing ✕.
+  // End the hover session; next enter can re-arm.
   instrHoverArmed = false;
   instrManualClose = false;
 }
