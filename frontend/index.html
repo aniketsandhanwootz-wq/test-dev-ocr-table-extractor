@@ -1158,14 +1158,33 @@
 #instr-modal-close {
   position: absolute;
   right: 8px;
-  top: 6px;
-  background: none;
+  top: 8px;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #D99E01;            /* high-contrast pill */
+  color: #000;                     /* black glyph on yellow */
   border: none;
-  color: #fff;
-  font-size: 20px;
+  border-radius: 9999px;           /* circle */
+  font-size: 22px;                 /* larger × */
+  font-weight: 800;
+  line-height: 1;
   cursor: pointer;
-  opacity: 0.75;
+  opacity: 1;                      /* always fully visible */
+  box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+  z-index: 1;                      /* above modal content */
+  outline: none;
 }
+#instr-modal-close:hover {
+  background: #c18d00;            /* slight darken on hover */
+}
+#instr-modal-close:focus-visible {
+  outline: 2px solid #fff;        /* keyboard focus ring */
+  outline-offset: 2px;
+}
+
 
 #instr-modal-close:hover { opacity: 1; }
 
@@ -3099,7 +3118,7 @@ function onInstrEnter() {
     if (area.classList.contains('notification-instructions')) {
       openInstrModal();
     }
-  }, 5000); // 5s hover
+  }, 300); // 5s hover
 }
 
 function onInstrLeave() {
